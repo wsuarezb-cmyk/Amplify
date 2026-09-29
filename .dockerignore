@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────────
+# .dockerignore — PAUTA
+# Excluye archivos sensibles y artefactos de build del contexto Docker.
+# ─────────────────────────────────────────────────────────────────
+
+# Credenciales y secretos — NUNCA en la imagen
+credentials/
+backend/credentials/
+backend/.env
+frontend/.env
+
+# Python build artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+backend/.venv/
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+node_modules/
+
+# IDEs y OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Git
+.git/
+.gitignore
+
+# Docs (no necesarios en runtime)
+docs/
+instrucciones_md/

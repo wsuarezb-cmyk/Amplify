@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-body); background: #fff; padding: 20px; display: flex; gap: 32px; }
+.section { }
+.title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 12px; }
+.radii { display: flex; gap: 10px; align-items: flex-end; }
+.rbox { background: #D0DAEF; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+.rlbl { font-size: 9px; color: #9E9E9E; text-align: center; margin-top: 4px; }
+.shadows { display: flex; flex-direction: column; gap: 14px; }
+.sbox { background: #fff; width: 120px; height: 32px; border-radius: 8px; }
+.slbl { font-size: 10px; color: #9E9E9E; margin-top: 4px; }
+</style></head>
+<body>
+<div class="section">
+  <div class="title">Border Radius</div>
+  <div class="radii">
+    <div><div class="rbox" style="border-radius:4px"></div><div class="rlbl">sm 4px</div></div>
+    <div><div class="rbox" style="border-radius:8px"></div><div class="rlbl">md 8px</div></div>
+    <div><div class="rbox" style="border-radius:12px"></div><div class="rlbl">lg 12px</div></div>
+    <div><div class="rbox" style="border-radius:16px"></div><div class="rlbl">xl 16px</div></div>
+    <div><div class="rbox" style="border-radius:9999px"></div><div class="rlbl">full</div></div>
+  </div>
+</div>
+<div class="section">
+  <div class="title">Shadows</div>
+  <div class="shadows">
+    <div><div class="sbox" style="box-shadow:0 1px 2px rgba(0,0,0,0.06);border:1px solid #E0E0E0"></div><div class="slbl">xs — hover</div></div>
+    <div><div class="sbox" style="box-shadow:0 2px 6px rgba(0,0,0,0.08)"></div><div class="slbl">sm — card</div></div>
+    <div><div class="sbox" style="box-shadow:0 4px 16px rgba(0,0,0,0.10)"></div><div class="slbl">md — elevated</div></div>
+    <div><div class="sbox" style="box-shadow:0 8px 32px rgba(0,0,0,0.12)"></div><div class="slbl">lg — modal</div></div>
+  </div>
+</div>
+</body></html>

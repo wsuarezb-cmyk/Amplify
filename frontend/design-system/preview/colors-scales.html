@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-body); background: #fff; padding: 20px; }
+.group { margin-bottom: 14px; }
+.title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 8px; }
+.row { display: flex; gap: 4px; }
+.step { flex: 1; height: 36px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.06); position: relative; }
+.step span { position: absolute; bottom: -16px; left: 0; font-size: 9px; color: #9E9E9E; font-family: monospace; }
+</style></head>
+<body>
+<div class="group">
+  <div class="title">Green Scale</div>
+  <div class="row">
+    <div class="step" style="background:#1F3D19"><span>900</span></div>
+    <div class="step" style="background:#3D7A30"><span>700</span></div>
+    <div class="step" style="background:#5BA64A"><span>500</span></div>
+    <div class="step" style="background:#93CC84"><span>300</span></div>
+    <div class="step" style="background:#D4EDD0"><span>100</span></div>
+  </div>
+</div>
+<div class="group" style="margin-top:24px">
+  <div class="title">Blue Scale</div>
+  <div class="row">
+    <div class="step" style="background:#1A2A5E"><span>900</span></div>
+    <div class="step" style="background:#2B4492"><span>700</span></div>
+    <div class="step" style="background:#3B5BA5"><span>500</span></div>
+    <div class="step" style="background:#7A9AD0"><span>300</span></div>
+    <div class="step" style="background:#D0DAEF"><span>100</span></div>
+  </div>
+</div>
+<div class="group" style="margin-top:24px">
+  <div class="title">Red Scale</div>
+  <div class="row">
+    <div class="step" style="background:#6B0E28"><span>900</span></div>
+    <div class="step" style="background:#A81839"><span>700</span></div>
+    <div class="step" style="background:#D91F4D"><span>500</span></div>
+    <div class="step" style="background:#F07494"><span>300</span></div>
+    <div class="step" style="background:#FAD0DC"><span>100</span></div>
+  </div>
+</div>
+</body></html>

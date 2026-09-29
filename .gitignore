@@ -1,0 +1,65 @@
+# Credenciales y secretos — NUNCA commitear
+credentials/
+backend/credentials/
+**/gcp_user_credentials.json
+**/sa_temp*.json
+backend/.env
+frontend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+backend/.venv/
+.venv/
+venv/
+env/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+*.coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+node_modules/
+dist/
+*.local
+
+# IDEs y OS
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# Docker
+*.tar
+
+# Bases de datos locales
+chroma_db/
+
+# Instrucciones internas (no van al repo)
+instrucciones_md/
+
+# Diagnósticos IA generados localmente con backend/scripts/generar_diagnostico_prueba.py
+# (solo HTML en la raíz; frontend/index.html no se ve afectado)
+/*.html

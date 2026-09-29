@@ -1,0 +1,252 @@
+/* ============================================================
+   PITCH — Design System Tokens
+   Fuente única de verdad de color y tipografía.
+   Los componentes consumen var(--color-*) — nunca hex inline.
+   ============================================================ */
+
+/* Google Fonts — Montserrat (display) + Inter (UI body) + JetBrains Mono */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ─── BRAND COLORS ────────────────────────────────────────── */
+  --color-green:       #5BA64A;
+  --color-blue:        #3B5BA5;
+  --color-red:         #D91F4D;
+  --color-orange:      #E97132;   /* Marca Pitch */
+  --color-gray-dot:    #9E9E9E;
+
+  /* ─── NEUTRAL SCALE ──────────────────────────────────────── */
+  --color-black:       #1A1A1A;
+  --color-gray-900:    #2D2D2D;
+  --color-gray-800:    #3F3F3F;
+  --color-gray-700:    #5C5C5C;
+  --color-gray-600:    #757575;
+  --color-gray-500:    #9E9E9E;
+  --color-gray-400:    #BDBDBD;
+  --color-gray-300:    #E0E0E0;
+  --color-gray-200:    #EEEEEE;
+  --color-gray-100:    #F5F5F5;
+  --color-white:       #FFFFFF;
+
+  /* ─── GREEN SCALE ────────────────────────────────────────── */
+  --color-green-900:   #1F3D19;
+  --color-green-700:   #3D7A30;
+  --color-green-500:   #5BA64A;
+  --color-green-300:   #93CC84;
+  --color-green-100:   #D4EDD0;
+
+  /* ─── BLUE SCALE ─────────────────────────────────────────── */
+  --color-blue-900:    #1A2A5E;
+  --color-blue-700:    #2B4492;
+  --color-blue-500:    #3B5BA5;
+  --color-blue-300:    #7A9AD0;
+  --color-blue-100:    #D0DAEF;
+
+  /* ─── RED SCALE ──────────────────────────────────────────── */
+  --color-red-900:     #6B0E28;
+  --color-red-700:     #A81839;
+  --color-red-500:     #D91F4D;
+  --color-red-300:     #F07494;
+  --color-red-100:     #FAD0DC;
+
+  /* ─── ORANGE SCALE (marca Pitch) ─────────────────────────── */
+  --color-orange-900:  #6E3013;
+  --color-orange-700:  #B4511E;
+  --color-orange-500:  #E97132;
+  --color-orange-300:  #F2A272;
+  --color-orange-100:  #FDECD9;
+
+  /* ─── SEMANTIC COLORS ────────────────────────────────────── */
+  --color-bg:          var(--color-white);
+  --color-bg-subtle:   var(--color-gray-100);
+  --color-bg-muted:    var(--color-gray-200);
+  --color-surface:     var(--color-white);
+  --color-border:      var(--color-gray-300);
+  --color-border-strong: var(--color-gray-400);
+
+  --color-fg:          var(--color-gray-900);
+  --color-fg-muted:    var(--color-gray-600);
+  --color-fg-subtle:   var(--color-gray-500);
+  --color-fg-on-dark:  var(--color-white);
+
+  --color-primary:     var(--color-orange-500);
+  --color-primary-dark: var(--color-orange-700);
+  --color-primary-light: var(--color-orange-100);
+
+  --color-accent:      var(--color-orange-500);
+  --color-accent-dark: var(--color-orange-700);
+  --color-accent-light: var(--color-orange-100);
+
+  --color-danger:      var(--color-red-500);
+  --color-danger-light: var(--color-red-100);
+
+  --color-success:     var(--color-green-500);
+  --color-success-light: var(--color-green-100);
+
+  --color-warning:     var(--color-orange-500);
+  --color-warning-light: var(--color-orange-100);
+
+  --color-info:        var(--color-blue-500);
+  --color-info-light:  var(--color-blue-100);
+
+  /* ─── SEMÁFORO DE SCORE (0-100) ──────────────────────────── */
+  /* Umbrales: HIGH >= 90, MEDIUM >= 85, LOW < 85 — ver utils/scores.js */
+  --color-score-high:        var(--color-green-700);
+  --color-score-high-bg:     var(--color-green-100);
+  --color-score-medium:      var(--color-orange-700);
+  --color-score-medium-bg:   var(--color-orange-100);
+  --color-score-low:         var(--color-red-700);
+  --color-score-low-bg:      var(--color-red-100);
+  --color-score-none:        var(--color-gray-500);
+  --color-score-none-bg:     var(--color-gray-100);
+
+  /* ─── RESULTADOS DE EVALUACIÓN ───────────────────────────── */
+  --color-result-cumple:        var(--color-green-700);
+  --color-result-cumple-bg:     var(--color-green-100);
+  --color-result-no-cumple:     var(--color-red-700);
+  --color-result-no-cumple-bg:  var(--color-red-100);
+  --color-result-na:            var(--color-gray-600);
+  --color-result-na-bg:         var(--color-gray-100);
+  --color-result-no-evaluado:   var(--color-gray-500);
+  --color-result-no-evaluado-bg: var(--color-gray-200);
+
+  /* ─── TYPOGRAPHY ─────────────────────────────────────────── */
+  /* Font families */
+  --font-display:   'Montserrat', 'Arial', sans-serif;
+  --font-body:      'Inter', 'Arial', sans-serif;
+  --font-mono:      'JetBrains Mono', 'Courier New', monospace;
+
+  /* Font weights */
+  --font-weight-light:    300;
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+  --font-weight-extrabold: 800;
+
+  /* Font sizes */
+  --text-xs:    11px;
+  --text-sm:    13px;
+  --text-base:  15px;
+  --text-md:    17px;
+  --text-lg:    20px;
+  --text-xl:    24px;
+  --text-2xl:   30px;
+  --text-3xl:   36px;
+  --text-4xl:   48px;
+  --text-5xl:   64px;
+
+  /* Line heights */
+  --leading-tight:  1.2;
+  --leading-snug:   1.35;
+  --leading-normal: 1.5;
+  --leading-loose:  1.7;
+
+  /* Letter spacing */
+  --tracking-tight:  -0.02em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.04em;
+  --tracking-wider:   0.08em;
+  --tracking-widest:  0.12em;
+
+  /* ─── SPACING ─────────────────────────────────────────────── */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+
+  /* ─── BORDER RADIUS ──────────────────────────────────────── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* ─── SHADOWS ─────────────────────────────────────────────── */
+  --shadow-xs:  0 1px 2px rgba(0,0,0,0.06);
+  --shadow-sm:  0 2px 6px rgba(0,0,0,0.08);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.10);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.12);
+  --shadow-xl:  0 16px 48px rgba(0,0,0,0.16);
+
+  /* ─── TRANSITIONS ────────────────────────────────────────── */
+  --transition-fast:   120ms ease;
+  --transition-base:   200ms ease;
+  --transition-slow:   350ms ease;
+
+  /* ─── Z-INDEX ─────────────────────────────────────────────── */
+  --z-below:   -1;
+  --z-base:     0;
+  --z-raised:   10;
+  --z-dropdown: 100;
+  --z-sticky:   200;
+  --z-modal:    300;
+  --z-toast:    400;
+}
+
+/* ─── SEMANTIC TYPE STYLES ──────────────────────────────────── */
+h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-fg);
+}
+h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-fg);
+}
+h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--color-fg);
+}
+h4 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--color-fg);
+}
+p {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--color-fg);
+}
+code, pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+.label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.caption {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--color-fg-subtle);
+  line-height: var(--leading-normal);
+}

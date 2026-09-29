@@ -1,0 +1,288 @@
+
+-- D1. Valores reales de resultado × mecanismo en la fuente de la muestra.
+
+Row	resultado	mecanismo_evaluacion	filas	desde	hasta
+1	CUMPLE	AUTO_IA	163447	2026-06-01	2026-09-27
+2	N/A	AUTO_IA	62671	2026-06-01	2026-09-27
+3	NO_CUMPLE	AUTO_IA	25341	2026-06-01	2026-09-27
+4	NO_EVALUADO	AUTO_IA	1960	2026-06-02	2026-08-14
+
+-- D2. Etiquetas de tipo de interacción (confirmar cómo llega el recontacto).
+
+Row	tipo_interaccion	interacciones	filas
+1	EMAIL	34854	209124
+2	CASE	25081	25081
+3	TASK_INFO_REQUEST	3636	14544
+4	TASK_REOPEN	2579	4290
+5	TASK_RECONTACT	380	380
+
+-- D3. Criterios con más de una fila en el catálogo (versiones / reactivaciones).
+
+Row	criterion_id	filas	versiones. criterion_name	versiones. is_active	versiones. criteria_version	versiones. valid_from	versiones. valid_to	versiones. updated_at
+1	C0007	2	Uso correcto del motivo de reapertura	false	1	2026-01-01	2026-08-05	2026-08-05 20:15:02.027605 UTC
+			Uso correcto del motivo de reapertura	true	2	2026-09-07	null	2026-09-07 22:57:41.738192 UTC
+2	C0008	2	Uso correcto del motivo de recontacto	false	1	2026-01-01	null	2026-04-17 22:25:44.229365 UTC
+			Uso correcto del motivo de recontacto	true	2	2026-09-07	null	2026-09-07 22:57:41.738192 UTC
+
+-- D4. Mapping del recontacto (todas las filas, todos los mecanismos).
+
+Row	mapping_id	criterion_id	interaction_type	mechanism	notes	is_active	created_at
+1	f05955cc-d384-47b5-830b-7955673a9e19	C0008	TASK_RECONTACT	AUTO_IA	Evalúa coherencia semántica del motivo. Pre-filtros en SP para motivos SLA (4 motivos verificados por fechas y estado del caso sin IA).	true	2026-04-17 20:20:48.250743 UTC
+2	e081b462-f217-4935-bedf-11018156c0da	C0008	TASK_RECONTACT	HUMANO	Evaluación humana — criterio equivalente a AUTO_IA	false	2026-05-05 20:14:38.129538 UTC
+
+-- D5a. Composición de la muestra actual por estado × snapshot de resultado × mecanismo.
+
+Row	estado	resultado_auto_snapshot	mecanismo_auto_snapshot	filas
+1	COMPLETADO	NO_CUMPLE	AUTO_IA	28
+2	COMPLETADO	CUMPLE	AUTO_IA	25
+3	PENDIENTE	CUMPLE	AUTO_IA	5
+4	PENDIENTE	NO_CUMPLE	AUTO_IA	2
+
+-- D5b. Unidades duplicadas (misma interacción × criterio) dentro de la muestra activa.
+
+There is no data to display.
+
+-- D6. Evaluaciones HUMANO duplicadas ya guardadas (efecto del bug "1/2").
+
+Row	interaction_id	criterion_id	evaluated_by	filas
+1	00TUg000018l2McMAI	C0008	muribeo@falabella.com	2
+2	00TUg000018wa2pMAA	C0007	jberdugo@falabella.com	2
+3	00TUg000018lmdpMAA	C0008	jcastiblanco@falabella.com	2
+4	00TUg000018tGMLMA2	C0008	jberdugo@falabella.com	2
+5	00TUg0000190rs1MAA	C0007	jcastiblanco@falabella.com	2
+6	00TUg000018zhcPMAQ	C0007	jcastiblanco@falabella.com	2
+7	00TUg000018g93PMAQ	C0008	jberdugo@falabella.com	2
+8	00TUg000018qWd4MAE	C0007	muribeo@falabella.com	2
+9	00TUg000018xVXLMA2	C0007	jberdugo@falabella.com	2
+10	00TUg000018w35GMAQ	C0008	jcastiblanco@falabella.com	2
+11	00TUg0000190iTdMAI	C0007	jcastiblanco@falabella.com	2
+
+-- D7. DDL de las tablas y vistas involucradas (no están en el repo).
+
+Row	table_name	table_type	ddl
+1	pitch_eval_enriched	BASE TABLE	CREATE TABLE `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.pitch_eval_enriched`
+(
+  interaction_id STRING,
+  tipo_interaccion STRING,
+  case_id STRING,
+  numero_caso STRING,
+  pais STRING,
+  nombre_agente STRING,
+  email_agente STRING,
+  departamento STRING,
+  nombre_manager STRING,
+  email_manager STRING,
+  seller_code STRING,
+  tipificacion_nivel_1 STRING,
+  tipificacion_nivel_2 STRING,
+  nombre_tipificacion STRING,
+  fecha_evaluacion DATE,
+  score_interaccion FLOAT64,
+  es_defectuosa BOOL,
+  es_primera_fila_interaccion BOOL,
+  es_primera_fila_categoria BOOL,
+  id_criterio STRING,
+  nombre_criterio STRING,
+  tipo_error STRING,
+  categoria_error STRING,
+  resultado STRING,
+  score_criterio FLOAT64,
+  observacion_saaca STRING,
+  peso_aplicado FLOAT64,
+  mecanismo_evaluacion STRING,
+  fecha_hora_evaluacion TIMESTAMP,
+  peso_relativo_criterio FLOAT64,
+  tiene_error_en_categoria BOOL,
+  _fecha_carga TIMESTAMP
+);
+2	pitch_muestra_calibracion	BASE TABLE	CREATE TABLE `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.pitch_muestra_calibracion`
+(
+  muestra_id STRING NOT NULL,
+  batch_id STRING NOT NULL,
+  interaction_id STRING NOT NULL,
+  interaction_type STRING,
+  criterion_id STRING NOT NULL,
+  pais STRING,
+  mecanismo_auto_snapshot STRING,
+  resultado_auto_snapshot STRING,
+  estrato STRING,
+  criticidad STRING,
+  margen_error_objetivo FLOAT64,
+  auditor_email STRING NOT NULL,
+  fecha_asignacion TIMESTAMP NOT NULL,
+  estado STRING NOT NULL,
+  fecha_completado TIMESTAMP,
+  motivo_descarte STRING,
+  descartado_por STRING,
+  fecha_descarte TIMESTAMP,
+  _fecha_generacion TIMESTAMP NOT NULL,
+  anulado_por STRING,
+  fecha_anulacion TIMESTAMP
+)
+PARTITION BY DATE(fecha_asignacion)
+CLUSTER BY auditor_email, estado;
+3	saaca_cat_criteria	BASE TABLE	CREATE TABLE `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.saaca_cat_criteria`
+(
+  criterion_id STRING NOT NULL,
+  criterion_name STRING NOT NULL,
+  criterion_description STRING NOT NULL,
+  error_type STRING NOT NULL,
+  error_category STRING NOT NULL,
+  criterion_weight FLOAT64 NOT NULL,
+  criteria_version INT64 NOT NULL,
+  valid_from DATE NOT NULL,
+  valid_to DATE,
+  is_active BOOL NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL
+);
+4	saaca_cat_criteria_mapping	BASE TABLE	CREATE TABLE `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.saaca_cat_criteria_mapping`
+(
+  mapping_id STRING NOT NULL,
+  criterion_id STRING NOT NULL,
+  interaction_type STRING NOT NULL,
+  mechanism STRING NOT NULL,
+  notes STRING,
+  is_active BOOL NOT NULL,
+  created_at TIMESTAMP NOT NULL
+);
+5	vw_pitch_calibracion_comparativa	VIEW	CREATE VIEW `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.vw_pitch_calibracion_comparativa`
+AS WITH auto_eval AS (
+  SELECT
+    interaction_id,
+    criterion_id,
+    result_label   AS resultado_auto,
+    result_score   AS score_auto,
+    mechanism      AS mecanismo_auto,
+    evaluated_at   AS fecha_evaluacion_auto,
+    observation    AS observacion_auto
+  FROM `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.saaca_eval_detail`
+  WHERE mechanism != 'HUMANO'
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY interaction_id, criterion_id
+    ORDER BY
+      CASE mechanism
+        WHEN 'AUTO_IA_RAG' THEN 1
+        WHEN 'AUTO_IA'     THEN 2
+        WHEN 'AUTO_REGLA'  THEN 3
+        ELSE 4
+      END
+  ) = 1
+),
+
+humano_eval AS (
+  -- Si un caso se re-audita, se queda la evaluación humana más reciente
+  SELECT
+    interaction_id,
+    interaction_type,
+    case_country      AS pais,
+    criterion_id,
+    criterion_name,
+    error_type        AS criticidad,
+    error_category    AS categoria_error_catalogo,
+    result_label      AS resultado_humano,
+    result_score      AS score_humano,
+    evaluated_by       AS auditor_email,
+    observation        AS observacion_humana,
+    evaluated_at        AS fecha_evaluacion_humana
+  FROM `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.saaca_eval_detail`
+  WHERE mechanism = 'HUMANO'
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY interaction_id, criterion_id
+    ORDER BY evaluated_at DESC
+  ) = 1
+)
+
+SELECT
+  h.interaction_id,
+  h.interaction_type,
+  h.pais,
+  h.criterion_id,
+  h.criterion_name,
+  h.criticidad,
+  h.categoria_error_catalogo,
+
+  h.auditor_email,
+  m.estrato,                     -- NULL hasta que exista el módulo de generación de muestra
+
+  a.resultado_auto,
+  a.score_auto,
+  a.mecanismo_auto,
+  a.observacion_auto,
+  a.fecha_evaluacion_auto,
+
+  h.resultado_humano,
+  h.score_humano,
+  h.observacion_humana,
+  h.fecha_evaluacion_humana,
+
+  a.resultado_auto = h.resultado_humano AS coincide
+
+FROM humano_eval h
+LEFT JOIN auto_eval a
+       ON a.interaction_id = h.interaction_id
+      AND a.criterion_id   = h.criterion_id
+LEFT JOIN `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.pitch_muestra_calibracion` m
+       ON m.interaction_id = h.interaction_id
+      AND m.criterion_id   = h.criterion_id;
+6	vw_pitch_dashboard_extracto	VIEW	CREATE VIEW `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.vw_pitch_dashboard_extracto`
+AS SELECT
+  interaction_id,
+  tipo_interaccion,
+  case_id,
+  numero_caso,
+  seller_code,
+  pais,
+  nombre_agente,
+  email_agente,
+  departamento,
+  nombre_manager,
+  email_manager,
+  tipificacion_nivel_1,
+  tipificacion_nivel_2,
+  nombre_tipificacion,
+  fecha_evaluacion,
+  score_interaccion,
+  es_defectuosa,
+  es_primera_fila_interaccion,
+  es_primera_fila_categoria,
+  id_criterio,
+  nombre_criterio,
+  tipo_error,
+  categoria_error,
+  resultado,
+  score_criterio,
+  peso_aplicado,
+  mecanismo_evaluacion,
+  peso_relativo_criterio,
+  tiene_error_en_categoria
+  -- observacion_saaca queda AFUERA a proposito: es texto pesado y solo se necesita
+  -- en el drilldown de un caso puntual, que si puede pegarle a BQ en vivo (bajo volumen)
+FROM `bi-fcom-drmb-sell-in-sbx.sandbox_data_analytics_psc.pitch_eval_enriched`;
+
+-- D8. Casos calibrados: snapshot de la muestra vs veredicto que muestra la vista,
+
+Row	interaction_id	criterion_id	resultado_auto_snapshot	resultado_en_vista	filas_auto	evaluaciones_auto. result_label	evaluaciones_auto. mechanism	evaluaciones_auto. evaluated_at	evaluaciones_auto. eval_run_id
+1	00TUg000016F723MAC	C0003	CUMPLE	NO_EVALUADO	2	NO_EVALUADO	AUTO_IA	2026-08-11 05:17:43.923065 UTC	null
+						CUMPLE	AUTO_IA	2026-08-20 02:09:06.570402 UTC	f9ebcf66-d808-48f2-a17a-bbbe9a0014d9
+2	00TUg000016H1a6MAC	C0001	CUMPLE	NO_EVALUADO	2	NO_EVALUADO	AUTO_IA	2026-08-11 05:23:42.931411 UTC	null
+						CUMPLE	AUTO_IA	2026-08-20 02:33:13.003640 UTC	42d176b3-686a-4e07-bf4e-cc72047ac634
+3	00TUg00000wrMAwMAM	C0008	NO_CUMPLE	null	0	null	null	null	null
+
+-- D9. Magnitud general: pares interacción × criterio con más de una evaluación
+
+Row	pares	pares_con_varias_filas	pares_con_veredictos_distintos
+1	292227	4185	1536
+
+-- D10. ¿pitch_eval_enriched también tiene más de una fila por interacción × criterio?
+
+Row	pares	pares_duplicados	pares_con_resultados_distintos
+1	253419	0	0
+
+-- L1. Vista previa de lo que se anularía.
+
+There is no data to display.
+
+-- L2. Anulación (mismo criterio que L1). Reemplazar el correo en anulado_por.
+
+This statement modified 0 rows in pitch_muestra_calibracion.

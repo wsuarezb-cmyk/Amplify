@@ -1,0 +1,509 @@
+/* Importar todos los tokens del design system */
+@import '../design-system/colors_and_type.css';
+
+/* Reset base */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-fg);
+  background: var(--color-bg-subtle);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar personalizada — sutil */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* Utility: visually hidden (accesibilidad) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Skeleton loading (KPICard y placeholders de gráficos) */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Grid de KPIs — 6 tarjetas en desktop, colapsa a 3/2/1 según ancho */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(6, 1fr);
+  gap: var(--space-4);
+}
+@media (max-width: 1400px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* Grid de dos columnas para gráficos — colapsa a una en pantallas angostas */
+.chart-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+@media (max-width: 1100px) {
+  .chart-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* Nombre de usuario del TopBar — oculto en mobile */
+@media (max-width: 640px) {
+  .topbar-username { display: none; }
+}
+
+/* ============================================================
+   Navbar estilo Canon (referencia: canon-compliance/NavMenu)
+   con acento naranja de Pitch.
+   ============================================================ */
+.pitch-navbar {
+  position: relative;
+  z-index: var(--z-sticky);
+  background: var(--color-surface);
+  border-top: 3px solid var(--color-primary);
+  border-radius: 0 0 15px 15px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 66px;
+  padding: 0 var(--space-6);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.pitch-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  transition: transform var(--transition-base);
+  user-select: none;
+}
+.pitch-brand:hover { transform: scale(1.02); }
+
+.pitch-brand-bars {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 36px;
+}
+.pitch-brand-bars span {
+  width: 9px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
+.pitch-brand-text {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-black);
+  letter-spacing: 1px;
+  line-height: 1.1;
+  display: block;
+}
+.pitch-brand-subtitle {
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  color: var(--color-fg-muted);
+  font-weight: var(--font-weight-regular);
+  opacity: 0.85;
+  display: block;
+  margin-top: -1px;
+}
+
+.pitch-nav { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+
+.pitch-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-gray-800);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-base);
+}
+.pitch-nav-link::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent);
+  transition: left 0.5s ease;
+}
+.pitch-nav-link:hover::before { left: 100%; }
+.pitch-nav-link:hover {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-primary-dark);
+}
+.pitch-nav-link.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.pitch-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all var(--transition-base);
+}
+.pitch-user-trigger:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.pitch-user-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-fg-on-dark);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-bold);
+  border: 2px solid rgba(255,255,255,0.8);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 25%, transparent);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+.pitch-user-trigger:hover .pitch-user-avatar { transform: scale(1.08); }
+
+.pitch-user-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 230px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 6px 0;
+  z-index: var(--z-dropdown);
+}
+
+/* ── Navegación de secciones (Reportería) ── */
+.section-nav {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+  background: var(--color-bg-subtle);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  margin: -8px 0;
+}
+.section-chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-fg-muted);
+  border-radius: var(--radius-full);
+  padding: 5px 14px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.section-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+.section-chip.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-fg-on-dark);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Entrada animada al expandir la Vista Operativa / secciones */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-slide-in { animation: fadeSlideIn 0.35s ease both; }
+
+/* El scroll suave hacia una sección no debe quedar tapado por la nav sticky */
+section[id^="sec-"] { scroll-margin-top: 56px; }
+
+/* ============================================================
+   Sidebar de navegación (app + secciones de Reportería)
+   Colapsable: ~230px expandido / ~62px colapsado.
+   ============================================================ */
+.pitch-sidebar {
+  flex-shrink: 0;
+  width: 230px;
+  height: 100vh;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width var(--transition-base);
+}
+.pitch-sidebar.collapsed { width: 62px; }
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  color: var(--color-fg-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.sidebar-toggle:hover { background: var(--color-primary-light); color: var(--color-primary-dark); }
+.pitch-sidebar.collapsed .sidebar-toggle { justify-content: center; }
+
+.sidebar-app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-gray-800);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+.sidebar-item:hover {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary-dark);
+}
+.sidebar-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+.pitch-sidebar.collapsed .sidebar-item { justify-content: center; }
+.pitch-sidebar.collapsed .sidebar-label { display: none; }
+
+.sidebar-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sidebar-group { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-group-header {
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-fg-subtle);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.sidebar-group-header:hover { color: var(--color-primary-dark); }
+.sidebar-group-header.active { color: var(--color-primary); }
+
+.sidebar-group-items { display: flex; flex-direction: column; gap: 1px; }
+.sidebar-section {
+  text-align: left;
+  padding: 6px 10px 6px 22px;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: none;
+  color: var(--color-fg-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.sidebar-section:hover { color: var(--color-primary-dark); background: var(--color-bg-subtle); }
+.sidebar-section.active {
+  color: var(--color-primary-dark);
+  border-left-color: var(--color-primary);
+  background: var(--color-primary-light);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Marca Overture SX (izquierda del topbar, redirige a Overture) ── */
+.overture-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  user-select: none;
+  transition: transform var(--transition-base);
+}
+.overture-brand:hover { transform: scale(1.02); }
+.overture-brand-text {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-black);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+  white-space: nowrap;
+}
+.overture-sx {
+  margin-left: 4px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-500);
+}
+
+/* Onda de la marca Overture — mismas dimensiones que el portal */
+.overture-brand-bars {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 14px;
+}
+.overture-brand-bars span {
+  width: 5px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+.brand-separator {
+  width: 1px;
+  height: 34px;
+  background: var(--color-gray-300);
+  flex-shrink: 0;
+}
+
+.pitch-brand-only {
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* Separador entre "Criterios más débiles" y "Peores interacciones" en Vista de agente.
+   Lado a lado (≥1100px): línea vertical a la izquierda; apilado: línea superior. */
+.vista-agente-sep {
+  border-left: 1px solid var(--color-gray-200);
+  padding-left: 20px;
+}
+@media (max-width: 1100px) {
+  .vista-agente-sep {
+    border-left: none;
+    border-top: 1px solid var(--color-gray-200);
+    padding-left: 0;
+    padding-top: 16px;
+  }
+}
+
+/* ── Burbuja flotante de limpiar filtros (arrastrable) ── */
+.clear-filters-bubble {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: var(--z-sticky);
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-fg-on-dark);
+  box-shadow: var(--shadow-lg);
+  animation: fadeSlideIn 0.25s ease both;
+  transition: box-shadow var(--transition-fast);
+  user-select: none;
+}
+.clear-filters-bubble:hover {
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+.clear-filters-grip {
+  display: flex;
+  align-items: center;
+  padding: 0 6px 0 12px;
+  cursor: grab;
+  font-size: 16px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--color-fg-on-dark) 75%, transparent);
+  touch-action: none;
+}
+.clear-filters-grip:active { cursor: grabbing; }
+.clear-filters-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 12px 8px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-full);
+  color: inherit;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}

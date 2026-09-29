@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller Experience — Internal Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Inter', sans-serif; background: #F0F0F0; overflow: hidden; font-size: 13px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="Components.jsx"></script>
+<script type="text/babel" src="Screens.jsx"></script>
+
+<script type="text/babel">
+function App() {
+  const containerRef = React.useRef(null);
+  const vp = useViewport(containerRef);
+  const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('sx_nav')) || 'overview';
+  const [active, setActive] = React.useState(saved);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  const handleNav = (id) => {
+    setActive(id);
+    try { localStorage.setItem('sx_nav', id); } catch (e) {}
+  };
+
+  React.useEffect(() => {
+    if (vp.breakpoint !== 'mobile') setDrawerOpen(false);
+  }, [vp.breakpoint]);
+
+  const Screen = SCREEN_MAP_R[active] || SCREEN_MAP_R.overview;
+  const m = META_R[active] || META_R.overview;
+
+  return (
+    <div ref={containerRef} style={{ display: 'flex', height: '100%', position: 'relative', overflow: 'hidden', background: RC.bg }}>
+      <ResponsiveSidebar
+        active={active} onNav={handleNav}
+        breakpoint={vp.breakpoint}
+        drawerOpen={drawerOpen}
+        onCloseDrawer={() => setDrawerOpen(false)}
+      />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <ResponsiveTopBar
+          title={m.title} subtitle={m.subtitle}
+          breakpoint={vp.breakpoint}
+          onOpenDrawer={() => setDrawerOpen(true)}
+        />
+        <Screen breakpoint={vp.breakpoint} />
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

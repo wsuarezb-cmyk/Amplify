@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────────
+# cloudbuild.yaml — Pitch
+# Construye la imagen Docker y la sube a Artifact Registry (pitch-repo).
+#
+# Uso desde Cloud Shell:
+#   gcloud builds submit --config=cloudbuild.yaml --project=flb-rtl-3p-sx-reg-dev .
+#
+# El frontend NO requiere build-args de auth: la identidad viene del header de
+# IAP en runtime (patrón Overture/Canon), no de un Google Client ID de build.
+# ─────────────────────────────────────────────────────────────────
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:$BUILD_ID'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:latest'
+      - '.'
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:$BUILD_ID'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-body); background: #fff; padding: 20px; }
+.title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 12px; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.item .bar { height: 28px; border-radius: 6px; margin-bottom: 4px; }
+.item .light { height: 16px; border-radius: 4px; margin-bottom: 4px; }
+.item .lbl { font-size: 11px; font-weight: 600; color: #3F3F3F; }
+</style></head>
+<body>
+<div class="title">Semantic Colors</div>
+<div class="grid">
+  <div class="item"><div class="bar" style="background:#5BA64A"></div><div class="light" style="background:#D4EDD0"></div><div class="lbl">Success</div></div>
+  <div class="item"><div class="bar" style="background:#D91F4D"></div><div class="light" style="background:#FAD0DC"></div><div class="lbl">Danger</div></div>
+  <div class="item"><div class="bar" style="background:#E97132"></div><div class="light" style="background:#FDECD9"></div><div class="lbl">Warning</div></div>
+  <div class="item"><div class="bar" style="background:#3B5BA5"></div><div class="light" style="background:#D0DAEF"></div><div class="lbl">Info</div></div>
+</div>
+</body></html>

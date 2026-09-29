@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #fff; padding: 20px; }
+.title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 14px; }
+.row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+button { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; border: none; cursor: pointer; border-radius: 6px; padding: 9px 20px; transition: all 0.15s ease; }
+.btn-primary { background: #5BA64A; color: #fff; }
+.btn-primary:hover { background: #3D7A30; }
+.btn-secondary { background: #3B5BA5; color: #fff; }
+.btn-danger { background: #D91F4D; color: #fff; }
+.btn-outline { background: transparent; color: #5BA64A; border: 2px solid #5BA64A; }
+.btn-ghost { background: transparent; color: #5C5C5C; border: 2px solid #E0E0E0; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.btn-lg { padding: 12px 28px; font-size: 16px; }
+.btn-disabled { background: #E0E0E0; color: #9E9E9E; cursor: not-allowed; }
+</style></head>
+<body>
+<div class="title">Buttons</div>
+<div class="row">
+  <button class="btn-primary">Publicar</button>
+  <button class="btn-secondary">Guardar</button>
+  <button class="btn-danger">Eliminar</button>
+  <button class="btn-outline">Exportar</button>
+  <button class="btn-ghost">Cancelar</button>
+</div>
+<div class="row">
+  <button class="btn-primary btn-sm">Small</button>
+  <button class="btn-primary">Default</button>
+  <button class="btn-primary btn-lg">Large</button>
+  <button class="btn-disabled" disabled>Deshabilitado</button>
+</div>
+</body></html>

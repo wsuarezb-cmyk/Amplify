@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller Experience — Responsive Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #C8C8C8;
+    background-image:
+      linear-gradient(135deg, #C8C8C8 0%, #B0B0B0 100%);
+    overflow: hidden;
+    font-size: 13px;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 3px; }
+  #root { height: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="ui_kits/seller_center/Components.jsx"></script>
+<script type="text/babel" src="ui_kits/seller_center/Screens.jsx"></script>
+
+<script type="text/babel">
+
+// ─── App Shell (lives inside the resize-aware container) ───────────────
+function App({ containerRef }) {
+  const vp = useViewport(containerRef);
+  const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('sx_nav')) || 'overview';
+  const [active, setActive] = React.useState(saved);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  const handleNav = (id) => {
+    setActive(id);
+    try { localStorage.setItem('sx_nav', id); } catch (e) {}
+  };
+
+  // Close drawer when breakpoint changes away from mobile
+  React.useEffect(() => {
+    if (vp.breakpoint !== 'mobile') setDrawerOpen(false);
+  }, [vp.breakpoint]);
+
+  const Screen = SCREEN_MAP_R[active] || SCREEN_MAP_R.overview;
+  const m = META_R[active] || META_R.overview;
+
+  return (
+    <div style={{ display: 'flex', height: '100%', position: 'relative', overflow: 'hidden', background: RC.bg }}>
+      <ResponsiveSidebar
+        active={active}
+        onNav={handleNav}
+        breakpoint={vp.breakpoint}
+        drawerOpen={drawerOpen}
+        onCloseDrawer={() => setDrawerOpen(false)}
+      />
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <ResponsiveTopBar
+          title={m.title}
+          subtitle={m.subtitle}
+          breakpoint={vp.breakpoint}
+          onOpenDrawer={() => setDrawerOpen(true)}
+        />
+        <Screen breakpoint={vp.breakpoint} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Browser Window Frame with Resize Handles ──────────────────────────
+const PRESETS = [
+  { label: 'iPhone',  width: 375,  bp: 'mobile'  },
+  { label: 'Tablet',  width: 820,  bp: 'tablet'  },
+  { label: 'Laptop',  width: 1280, bp: 'desktop' },
+  { label: 'Wide',    width: 1600, bp: 'desktop' },
+];
+
+function PreviewShell() {
+  const [width, setWidth] = React.useState(1280);
+  const [dragging, setDragging] = React.useState(false);
+  const [isPinching, setIsPinching] = React.useState(false);
+  const containerRef = React.useRef(null);
+  const stageRef = React.useRef(null);
+  const dragSide = React.useRef(null); // 'left' | 'right'
+  const dragStart = React.useRef({ x: 0, w: 0 });
+
+  // Constrain width to stage size
+  const [maxW, setMaxW] = React.useState(1800);
+  React.useEffect(() => {
+    const update = () => {
+      if (stageRef.current) {
+        const w = stageRef.current.offsetWidth - 60;
+        setMaxW(Math.max(360, w));
+        setWidth(prev => Math.min(prev, w));
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  React.useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => {
+      const dx = e.clientX - dragStart.current.x;
+      const delta = dragSide.current === 'right' ? dx * 2 : -dx * 2;
+      const next = Math.max(320, Math.min(maxW, dragStart.current.w + delta));
+      setWidth(next);
+    };
+    const onUp = () => setDragging(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [dragging, maxW]);
+
+  const startDrag = (side) => (e) => {
+    setDragging(true);
+    dragSide.current = side;
+    dragStart.current = { x: e.clientX, w: width };
+    e.preventDefault();
+  };
+
+  const bp = width < 768 ? 'mobile' : width < 1024 ? 'tablet' : 'desktop';
+  const bpColor = bp === 'mobile' ? RC.orange : bp === 'tablet' ? RC.blue : RC.green;
+  const bpBg    = bp === 'mobile' ? RC.orangeL : bp === 'tablet' ? RC.blueL : RC.greenL;
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+
+      {/* Top toolbar */}
+      <div style={{
+        flexShrink: 0, padding: '14px 22px', display: 'flex', alignItems: 'center', gap: 18,
+        background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(0,0,0,0.10)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 26, height: 26, borderRadius: 6, background: '#1E1E1E', display: 'flex', alignItems: 'center', justifyContent: 'center', color: RC.green, fontWeight: 800, fontSize: 11, fontFamily: 'Montserrat, sans-serif', letterSpacing: '-0.02em' }}>SX</div>
+          <div>
+            <div style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 14, color: '#1A1A1A', letterSpacing: '-0.03em', lineHeight: 1.1 }}>Seller Experience · Internal Tools</div>
+            <div style={{ fontSize: 11, color: '#5C5C5C', marginTop: 2 }}>Responsive design system · drag handles to resize</div>
+          </div>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Breakpoint indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600,
+            color: '#1A1A1A', background: '#fff', padding: '4px 10px', borderRadius: 6,
+            border: '1px solid rgba(0,0,0,0.10)', minWidth: 70, textAlign: 'center',
+          }}>{width}px</span>
+          <span style={{
+            fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700,
+            color: bpColor, background: bpBg,
+            padding: '4px 10px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.06em',
+          }}>{bp}</span>
+        </div>
+
+        {/* Presets */}
+        <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.05)', padding: 3, borderRadius: 8 }}>
+          {PRESETS.map(p => {
+            const active = Math.abs(width - p.width) < 8;
+            return (
+              <button key={p.label} onClick={() => setWidth(Math.min(maxW, p.width))} style={{
+                fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: active ? 600 : 500,
+                padding: '5px 12px', borderRadius: 6, border: 'none',
+                background: active ? '#fff' : 'transparent',
+                color: active ? '#1A1A1A' : '#5C5C5C',
+                cursor: 'pointer', boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.12s',
+              }}>
+                {p.label} <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, opacity: 0.6, marginLeft: 4 }}>{p.width}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button onClick={() => setWidth(maxW)} style={{
+          fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600,
+          padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.10)',
+          background: '#fff', color: '#1A1A1A', cursor: 'pointer',
+        }}>Fit ⤢</button>
+      </div>
+
+      {/* Stage */}
+      <div ref={stageRef} style={{
+        flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px 30px', overflow: 'hidden',
+      }}>
+
+        {/* Width ruler */}
+        <div style={{ position: 'absolute', top: 8, left: 30, right: 30, display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'rgba(0,0,0,0.4)', fontFamily: 'JetBrains Mono, monospace', pointerEvents: 'none' }}>
+          {[768, 1024].map(bp => {
+            const pctL = ((bp / maxW) * 100);
+            return (
+              <div key={bp} style={{ position: 'absolute', left: `${pctL}%`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(0,0,0,0.20)', height: '100%' }}>
+                <span style={{ position: 'absolute', top: 0, left: 4, fontSize: 9, fontWeight: 700, color: 'rgba(0,0,0,0.4)' }}>{bp}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Window frame */}
+        <div style={{
+          width, maxWidth: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+          background: '#fff', borderRadius: 10, overflow: 'hidden',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.30), 0 8px 20px rgba(0,0,0,0.18)',
+          transition: dragging ? 'none' : 'width 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+          position: 'relative',
+        }}>
+          {/* Window chrome */}
+          <div style={{
+            height: 32, background: '#EAEAEA',
+            borderBottom: '1px solid #D0D0D0',
+            display: 'flex', alignItems: 'center', padding: '0 12px', gap: 8,
+            flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#FF5F57' }} />
+              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#FEBC2E' }} />
+              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#28C840' }} />
+            </div>
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+              <div style={{
+                fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#5C5C5C',
+                background: '#F5F5F5', border: '1px solid #D8D8D8', borderRadius: 5,
+                padding: '2px 14px', minWidth: 200, textAlign: 'center',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%',
+              }}>seller-experience.falabella.internal</div>
+            </div>
+            <div style={{ width: 50 }} />
+          </div>
+
+          {/* App container — useViewport reads from this */}
+          <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <App containerRef={containerRef} />
+          </div>
+        </div>
+
+        {/* Drag handles */}
+        {[
+          { side: 'left',  pos: { left: 30 } },
+          { side: 'right', pos: { right: 30 } },
+        ].map(h => (
+          <div
+            key={h.side}
+            onMouseDown={startDrag(h.side)}
+            style={{
+              position: 'absolute', top: '50%', ...h.pos,
+              transform: 'translateY(-50%)',
+              width: 14, height: 96, borderRadius: 7,
+              background: dragging ? RC.green : 'rgba(0,0,0,0.5)',
+              cursor: 'ew-resize', zIndex: 50,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+              transition: 'background 0.12s',
+            }}
+            onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#1E1E1E'; }}
+            onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {[0,1,2].map(i => <span key={i} style={{ width: 2, height: 2, borderRadius: '50%', background: '#fff' }} />)}
+            </div>
+          </div>
+        ))}
+
+      </div>
+
+      {/* Footer breakpoints legend */}
+      <div style={{
+        flexShrink: 0, padding: '10px 22px', display: 'flex', alignItems: 'center', gap: 18,
+        background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(10px)',
+        borderTop: '1px solid rgba(0,0,0,0.10)', fontSize: 11, color: '#5C5C5C',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: RC.orange }} />
+          <strong style={{ color: '#1A1A1A' }}>Mobile</strong> &lt;768 — drawer + carrusel KPIs + cards
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: RC.blue }} />
+          <strong style={{ color: '#1A1A1A' }}>Tablet</strong> 768–1023 — icon rail + 2col KPIs + scroll-x tablas
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: RC.green }} />
+          <strong style={{ color: '#1A1A1A' }}>Desktop</strong> ≥1024 — sidebar full + tabla completa
+        </div>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'rgba(0,0,0,0.4)' }}>← drag handles to resize →</span>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<PreviewShell />);
+</script>
+</body>
+</html>

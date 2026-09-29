@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller Experience — Internal Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body { font-family: 'Inter', sans-serif; background: #F0F0F0; overflow: hidden; font-size: 13px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const C = {
+  sidebar:    '#111111',
+  sidebarB:   'rgba(255,255,255,0.07)',
+  topbar:     '#1A1A1A',
+  topbarB:    'rgba(255,255,255,0.08)',
+  bg:         '#F0F0F0',
+  surface:    '#FFFFFF',
+  border:     '#E4E4E4',
+  borderHov:  '#C8C8C8',
+  green:      '#5BA64A', greenL: '#D4EDD0', greenD: '#3D7A30',
+  blue:       '#3B5BA5', blueL:  '#D0DAEF',
+  red:        '#D91F4D', redL:   '#FAD0DC',
+  orange:     '#E97132', orangeL:'#FDECD9',
+  yellow:     '#D4A017', yellowL:'#FDF3D0',
+  fg:         '#1A1A1A', fg2: '#5C5C5C', fg3: '#9E9E9E',
+  sfg:        '#FFFFFF', sfg2: 'rgba(255,255,255,0.55)', sfg3: 'rgba(255,255,255,0.28)',
+};
+
+const NAV = [
+  { id: 'overview',   label: 'Overview',         dot: null },
+  { id: 'sellers',    label: 'Sellers',           dot: '12' },
+  { id: 'escalations',label: 'Escalaciones',      dot: '4',  alert: true },
+  { id: 'sla',        label: 'SLA & Compliance',  dot: null },
+  { id: 'deployments',label: 'Despliegues',        dot: '2' },
+  { id: 'tools',      label: 'Herramientas',       dot: null },
+  { id: 'settings',   label: 'Config',            dot: null },
+];
+
+function Sidebar({ active, onNav }) {
+  return (
+    <div style={{ width: 200, background: C.sidebar, borderRight: `1px solid ${C.sidebarB}`, height: '100%', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <div style={{ padding: '16px 14px 14px', borderBottom: `1px solid ${C.sidebarB}` }}>
+        <img src="../../assets/logo.png" alt="Seller Center" style={{ width: '100%', height: 24, objectFit: 'contain', filter: 'invert(1) brightness(1.8)' }} />
+        <div style={{ marginTop: 8, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.sfg3 }}>Seller Experience · Internal</div>
+      </div>
+
+      <nav style={{ flex: 1, padding: '8px 8px', overflowY: 'auto' }}>
+        {NAV.map(item => {
+          const isActive = active === item.id;
+          return (
+            <button key={item.id} onClick={() => onNav(item.id)} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', padding: '8px 10px', border: 'none', borderRadius: 6,
+              background: isActive ? 'rgba(91,166,74,0.15)' : 'transparent',
+              color: isActive ? C.green : C.sfg2,
+              fontFamily: 'Inter, sans-serif', fontSize: 13,
+              fontWeight: isActive ? 600 : 400,
+              cursor: 'pointer', transition: 'all 0.12s', textAlign: 'left', marginBottom: 1,
+              borderLeft: isActive ? `2px solid ${C.green}` : '2px solid transparent',
+            }}
+            onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = C.sfg; }}}
+            onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.sfg2; }}}
+            >
+              <span>{item.label}</span>
+              {item.dot && (
+                <span style={{
+                  background: item.alert ? C.red : 'rgba(255,255,255,0.14)',
+                  color: item.alert ? '#fff' : C.sfg2,
+                  fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 9999,
+                }}>{item.dot}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div style={{ padding: '10px 12px', borderTop: `1px solid ${C.sidebarB}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: C.green, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>AV</div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.sfg }}>Ana Valdés</div>
+            <div style={{ fontSize: 10, color: C.sfg3 }}>Seller Experience</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TopBar({ title, subtitle }) {
+  const [cmd, setCmd] = React.useState(false);
+  return (
+    <div style={{ height: 48, background: C.topbar, borderBottom: `1px solid ${C.topbarB}`, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 14, flexShrink: 0 }}>
+      <div style={{ flex: 1 }}>
+        <span style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 15, color: C.sfg, letterSpacing: '-0.03em' }}>{title}</span>
+        {subtitle && <span style={{ fontSize: 12, color: C.sfg3, marginLeft: 10 }}>{subtitle}</span>}
+      </div>
+
+      {/* Command bar */}
+      <div onClick={() => setCmd(true)} style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: 'rgba(255,255,255,0.07)', border: `1px solid ${C.sidebarB}`,
+        borderRadius: 6, padding: '5px 12px', width: 200, cursor: 'text',
+      }}>
+        <span style={{ color: C.sfg3, fontSize: 12 }}>⌘</span>
+        <span style={{ color: C.sfg3, fontSize: 12, flex: 1 }}>Buscar o ejecutar...</span>
+        <kbd style={{ fontSize: 10, color: C.sfg3, background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 3 }}>K</kbd>
+      </div>
+
+      {/* Alert */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(217,31,77,0.18)', border: '1px solid rgba(217,31,77,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.red, display: 'inline-block' }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#F07294' }}>4 escalaciones activas</span>
+      </div>
+
+      {/* Market pills */}
+      <div style={{ display: 'flex', gap: 4 }}>
+        {['🇨🇱','🇵🇪','🇨🇴'].map(f => (
+          <span key={f} style={{ fontSize: 16, cursor: 'pointer', opacity: 0.8 }}>{f}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Badge({ type, children }) {
+  const styles = {
+    success: { bg: C.greenL, color: C.greenD },
+    danger:  { bg: C.redL,   color: '#A81839' },
+    warning: { bg: C.orangeL,color: '#C05A1A' },
+    info:    { bg: C.blueL,  color: '#2B4492' },
+    neutral: { bg: '#EEEEEE',color: C.fg2 },
+    yellow:  { bg: C.yellowL,color: '#8A6A00' },
+  };
+  const s = styles[type] || styles.neutral;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: s.bg, color: s.color, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 9999, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
+      <span style={{ width: 4, height: 4, borderRadius: '50%', background: s.color }} />
+      {children}
+    </span>
+  );
+}
+
+function MiniKPI({ label, value, delta, deltaUp, accent }) {
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', flex: 1 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.fg3, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 26, fontWeight: 800, color: accent || C.fg, letterSpacing: '-0.04em', lineHeight: 1 }}>{value}</div>
+      {delta && <div style={{ fontSize: 11, fontWeight: 600, color: deltaUp ? C.green : C.red, marginTop: 5 }}>{deltaUp ? '↑' : '↓'} {delta}</div>}
+    </div>
+  );
+}
+
+/* ─── OVERVIEW SCREEN ─── */
+function OverviewScreen() {
+  const alerts = [
+    { id: 'INC-0041', market: '🇨🇴', title: 'Falla en carga de imágenes — catálogo masivo', sev: 'danger',  sla: '00:42 restante', owner: 'J. Morales' },
+    { id: 'INC-0042', market: '🇵🇪', title: 'Demora en sincronización de inventario',         sev: 'warning', sla: '02:15 restante', owner: 'A. Valdés'  },
+    { id: 'INC-0043', market: '🇨🇱', title: 'API de precios con latencia elevada (p95 >800ms)',sev: 'warning', sla: '01:30 restante', owner: 'R. Lagos'   },
+    { id: 'INC-0044', market: '🇨🇴', title: 'Seller no puede publicar — error 422',            sev: 'danger',  sla: 'VENCIDO',        owner: 'P. García'  },
+  ];
+
+  const deployments = [
+    { app: 'seller-center-frontend', version: 'v2.14.1', env: 'Production', market: '🇨🇱🇵🇪🇨🇴', status: 'success', time: 'hace 2h' },
+    { app: 'catalog-service',        version: 'v1.8.3',  env: 'Staging',    market: '🇨🇴',       status: 'warning', time: 'hace 4h' },
+    { app: 'pricing-api',            version: 'v3.2.0',  env: 'Production', market: '🇨🇱',       status: 'danger',  time: 'hace 6h' },
+  ];
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14, background: C.bg }}>
+
+      {/* KPIs row */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <MiniKPI label="Sellers activos"     value="4,821"  delta="38 esta semana"   deltaUp={true} />
+        <MiniKPI label="Tasa de activación"  value="73.4%"  delta="2.1% vs semana anterior" deltaUp={true} />
+        <MiniKPI label="Tickets abiertos"    value="127"    delta="14 críticos"      deltaUp={false} accent={C.red} />
+        <MiniKPI label="SLA compliance"      value="91.2%"  delta="2.3% vs objetivo" deltaUp={false} accent={C.orange} />
+        <MiniKPI label="Uptime plataforma"   value="99.7%"  delta="30 días"          deltaUp={true}  accent={C.green} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 14 }}>
+        {/* Escalations */}
+        <div style={{ flex: 1.4, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FFF8F8' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.red, display: 'inline-block' }} />
+              <span style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 13, color: C.fg, letterSpacing: '-0.02em' }}>Escalaciones activas</span>
+            </div>
+            <Badge type="danger">4 abiertas</Badge>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: C.bg }}>
+                {['ID','Mercado','Incidente','Severidad','SLA','Dueño'].map(h => (
+                  <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontWeight: 600, fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.fg3, borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {alerts.map((a, i) => (
+                <tr key={a.id}
+                  style={{ borderBottom: i < alerts.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <td style={{ padding: '9px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: C.blue, fontWeight: 500 }}>{a.id}</td>
+                  <td style={{ padding: '9px 12px', fontSize: 15 }}>{a.market}</td>
+                  <td style={{ padding: '9px 12px', color: C.fg, maxWidth: 220 }}>{a.title}</td>
+                  <td style={{ padding: '9px 12px' }}><Badge type={a.sev}>{a.sev === 'danger' ? 'Crítico' : 'Medio'}</Badge></td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: a.sla === 'VENCIDO' ? C.red : C.orange, fontWeight: 600 }}>{a.sla}</td>
+                  <td style={{ padding: '9px 12px', color: C.fg2 }}>{a.owner}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Deployments + health */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 13, color: C.fg, letterSpacing: '-0.02em' }}>Despliegues recientes</span>
+              <button style={{ fontSize: 11, fontWeight: 600, color: C.blue, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Ver todos →</button>
+            </div>
+            {deployments.map((d, i) => (
+              <div key={d.app} style={{ padding: '10px 14px', borderBottom: i < deployments.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.fg }}>{d.app}</span>
+                  <Badge type={d.status}>{d.status === 'success' ? 'OK' : d.status === 'warning' ? 'Degradado' : 'Falla'}</Badge>
+                </div>
+                <div style={{ display: 'flex', gap: 10, fontSize: 11, color: C.fg3 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{d.version}</span>
+                  <span>{d.env}</span>
+                  <span>{d.market}</span>
+                  <span style={{ marginLeft: 'auto' }}>{d.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Health grid */}
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+            <div style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 13, color: C.fg, letterSpacing: '-0.02em', marginBottom: 12 }}>Estado de servicios</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[
+                ['Catalog API',    'success'], ['Pricing API',   'danger'],
+                ['Order Service',  'success'], ['Auth Service',  'success'],
+                ['Search Engine',  'warning'], ['Notifications', 'success'],
+              ].map(([name, s]) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s === 'success' ? C.green : s === 'danger' ? C.red : C.orange, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: C.fg2 }}>{name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Seller activation funnel */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+        <div style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 13, color: C.fg, letterSpacing: '-0.02em', marginBottom: 12 }}>Funnel de activación — esta semana</div>
+        <div style={{ display: 'flex', gap: 0, alignItems: 'stretch' }}>
+          {[
+            { label: 'Registros',      value: 312, pct: 100, color: C.blue },
+            { label: 'Onboarding',     value: 248, pct: 79,  color: C.blue },
+            { label: 'Doc. enviada',   value: 201, pct: 64,  color: C.green },
+            { label: 'Doc. aprobada',  value: 174, pct: 56,  color: C.green },
+            { label: 'Primera pub.',   value: 138, pct: 44,  color: C.orange },
+            { label: 'Primera venta',  value: 89,  pct: 29,  color: C.orange },
+          ].map((step, i, arr) => (
+            <div key={step.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: '90%', height: 32, background: `${step.color}${Math.round(step.pct * 2.55).toString(16).padStart(2,'0')}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 14, color: '#fff', letterSpacing: '-0.02em' }}>{step.value}</span>
+              </div>
+              <div style={{ fontSize: 10, color: C.fg3, textAlign: 'center', lineHeight: 1.3 }}>{step.label}</div>
+              {i < arr.length - 1 && <div style={{ fontSize: 10, color: C.fg3 }}>→ {arr[i+1] ? Math.round((arr[i+1].value / step.value) * 100) : 0}%</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── SELLERS SCREEN ─── */
+function SellersScreen() {
+  const sellers = [
+    { id: 'SEL-4821', name: 'MV Store',        market: '🇨🇱', plan: 'Pro',    gmv: '$4.2M',  productos: 347, activacion: 'success', sla: '99.1%', joined: 'Ene 2024' },
+    { id: 'SEL-4822', name: 'TiendaPE Online', market: '🇵🇪', plan: 'Basic',  gmv: 'S/890K', productos: 124, activacion: 'success', sla: '95.3%', joined: 'Mar 2024' },
+    { id: 'SEL-4823', name: 'ColShop Co.',     market: '🇨🇴', plan: 'Pro',    gmv: '$1.1M',  productos: 58,  activacion: 'warning', sla: '88.4%', joined: 'Abr 2024' },
+    { id: 'SEL-4824', name: 'ModaChile SA',    market: '🇨🇱', plan: 'Basic',  gmv: '$620K',  productos: 210, activacion: 'success', sla: '97.8%', joined: 'Feb 2024' },
+    { id: 'SEL-4825', name: 'TechImport Perú', market: '🇵🇪', plan: 'Pro',    gmv: 'S/340K', productos: 89,  activacion: 'danger',  sla: '72.1%', joined: 'May 2024' },
+    { id: 'SEL-4826', name: 'HomeDecor Cali',  market: '🇨🇴', plan: 'Basic',  gmv: '$290K',  productos: 33,  activacion: 'warning', sla: '84.9%', joined: 'Mar 2024' },
+  ];
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12, background: C.bg }}>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <MiniKPI label="Sellers totales"   value="4,821" delta="38 esta semana" deltaUp={true} />
+        <MiniKPI label="Sellers Pro"       value="1,204" delta="12 nuevos"      deltaUp={true} />
+        <MiniKPI label="En riesgo (SLA)"   value="89"    delta="vs 74 sem. ant" deltaUp={false} accent={C.red} />
+        <MiniKPI label="GMV total"         value="$28.4M" delta="18.2% MoM"     deltaUp={true} accent={C.green} />
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 8 }}>
+          {['Todos','Activos','En riesgo','Inactivos'].map((f, i) => (
+            <button key={f} style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: i === 0 ? 600 : 400, padding: '5px 12px', borderRadius: 6, border: `1px solid ${i === 0 ? C.green : C.border}`, background: i === 0 ? C.greenL : 'transparent', color: i === 0 ? C.greenD : C.fg2, cursor: 'pointer' }}>{f}</button>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, padding: '5px 14px', borderRadius: 6, background: C.green, color: '#fff', border: 'none', cursor: 'pointer' }}>Exportar CSV</button>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: C.bg }}>
+              {['ID','Nombre','Mercado','Plan','GMV','Productos','Activación','SLA 30d','Ingreso'].map(h => (
+                <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontWeight: 600, fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.fg3, borderBottom: `1px solid ${C.border}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sellers.map((s, i) => (
+              <tr key={s.id}
+                style={{ borderBottom: i < sellers.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <td style={{ padding: '9px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: C.blue }}>{s.id}</td>
+                <td style={{ padding: '9px 12px', fontWeight: 600, color: C.fg }}>{s.name}</td>
+                <td style={{ padding: '9px 12px', fontSize: 15 }}>{s.market}</td>
+                <td style={{ padding: '9px 12px' }}><Badge type={s.plan === 'Pro' ? 'info' : 'neutral'}>{s.plan}</Badge></td>
+                <td style={{ padding: '9px 12px', fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: 13, color: C.fg, letterSpacing: '-0.02em' }}>{s.gmv}</td>
+                <td style={{ padding: '9px 12px', color: C.fg2 }}>{s.productos}</td>
+                <td style={{ padding: '9px 12px' }}><Badge type={s.activacion}>{s.activacion === 'success' ? 'Activo' : s.activacion === 'warning' ? 'Parcial' : 'Bloqueado'}</Badge></td>
+                <td style={{ padding: '9px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 600, color: parseFloat(s.sla) >= 95 ? C.green : parseFloat(s.sla) >= 85 ? C.orange : C.red }}>{s.sla}</td>
+                <td style={{ padding: '9px 12px', color: C.fg3, fontSize: 11 }}>{s.joined}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── APP SHELL ─── */
+function App() {
+  const saved = localStorage.getItem('se_internal_nav') || 'overview';
+  const [active, setActive] = React.useState(saved);
+
+  const handleNav = (id) => { setActive(id); localStorage.setItem('se_internal_nav', id); };
+
+  const meta = {
+    overview:    { title: 'Overview',         subtitle: 'Seller Experience · Vista general' },
+    sellers:     { title: 'Sellers',          subtitle: 'Gestión y monitoreo de sellers activos' },
+    escalations: { title: 'Escalaciones',     subtitle: 'Incidentes abiertos · SLA en riesgo' },
+    sla:         { title: 'SLA & Compliance', subtitle: 'Reportes de cumplimiento por mercado' },
+    deployments: { title: 'Despliegues',      subtitle: 'CI/CD · Historial de releases' },
+    tools:       { title: 'Herramientas',     subtitle: 'Apps y utilidades internas del equipo' },
+    settings:    { title: 'Configuración',    subtitle: 'Preferencias y accesos' },
+  };
+
+  const screenMap = {
+    overview:    <OverviewScreen />,
+    sellers:     <SellersScreen />,
+    escalations: <OverviewScreen />,
+    sla:         <SellersScreen />,
+    deployments: <OverviewScreen />,
+    tools:       <SellersScreen />,
+    settings:    <SellersScreen />,
+  };
+
+  const m = meta[active];
+  return (
+    <div style={{ display: 'flex', height: '100%' }}>
+      <Sidebar active={active} onNav={handleNav} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <TopBar title={m.title} subtitle={m.subtitle} />
+        {screenMap[active]}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

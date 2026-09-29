@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #fff; padding: 20px; }
+.title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 14px; }
+.row { display: flex; gap: 16px; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 160px; }
+label { font-size: 12px; font-weight: 500; color: #3F3F3F; }
+input, select { font-family: 'Inter', sans-serif; font-size: 14px; padding: 8px 12px; border: 1.5px solid #E0E0E0; border-radius: 6px; color: #1A1A1A; outline: none; background: #fff; }
+input:focus { border-color: #5BA64A; box-shadow: 0 0 0 3px #D4EDD0; }
+input.error { border-color: #D91F4D; }
+.hint { font-size: 11px; color: #9E9E9E; }
+.hint.error { color: #D91F4D; }
+</style></head>
+<body>
+<div class="title">Form Inputs</div>
+<div class="row">
+  <div class="field">
+    <label>Nombre del producto</label>
+    <input type="text" placeholder="Ej: Zapatillas Nike Air Max">
+    <span class="hint">Máx. 150 caracteres</span>
+  </div>
+  <div class="field">
+    <label>Precio (CLP)</label>
+    <input type="text" value="29.990">
+  </div>
+  <div class="field">
+    <label>Categoría</label>
+    <select><option>Ropa y Moda</option><option>Electrónica</option></select>
+  </div>
+  <div class="field">
+    <label>SKU <span style="color:#D91F4D">*</span></label>
+    <input type="text" class="error" value="INVALID-SKU">
+    <span class="hint error">SKU ya existe en el sistema</span>
+  </div>
+</div>
+</body></html>

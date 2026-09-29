@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #F5F5F5; padding: 20px; display: flex; gap: 16px; align-items: flex-start; }
+.card { background: #fff; border-radius: 8px; border: 1px solid #E0E0E0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); padding: 18px; min-width: 160px; }
+.card-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 6px; }
+.card-value { font-family: 'Montserrat', sans-serif; font-size: 28px; font-weight: 700; color: #1A1A1A; }
+.card-delta { font-size: 12px; font-weight: 600; color: #5BA64A; margin-top: 2px; }
+.card-list { list-style: none; }
+.card-list li { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #F0F0F0; font-size: 13px; color: #3F3F3F; }
+.card-list li:last-child { border-bottom: none; }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; }
+</style></head>
+<body>
+<div class="card">
+  <div class="card-label">Ventas del mes</div>
+  <div class="card-value">$4.2M</div>
+  <div class="card-delta">↑ 12.4% vs mes anterior</div>
+</div>
+<div class="card">
+  <div class="card-label">Pedidos recientes</div>
+  <ul class="card-list">
+    <li>ORD-0481 <span class="badge" style="background:#D4EDD0;color:#3D7A30">Enviado</span></li>
+    <li>ORD-0482 <span class="badge" style="background:#FDECD9;color:#C05A1A">Pendiente</span></li>
+    <li>ORD-0483 <span class="badge" style="background:#D0DAEF;color:#2B4492">En revisión</span></li>
+  </ul>
+</div>
+</body></html>

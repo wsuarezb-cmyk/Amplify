@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #F0F0F0; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 32px 24px; gap: 24px; min-height: 100vh; }
+
+.label-row { display: flex; gap: 24px; width: 100%; max-width: 1200px; }
+.col-label { flex: 1; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #9E9E9E; padding-bottom: 8px; }
+
+.panels { display: flex; gap: 24px; width: 100%; max-width: 1200px; }
+.panel { flex: 1; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.10); }
+
+/* ── OPTION A: Editorial Bold (Syne + Inter) ── */
+.a-topbar {
+  padding: 14px 24px;
+  border-bottom: 1px solid #EEEEEE;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.a-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; color: #1A1A1A; letter-spacing: -0.03em; }
+.a-logo span { color: #5BA64A; }
+.a-nav { display: flex; gap: 20px; font-family: 'Inter', sans-serif; font-size: 13px; color: #757575; }
+.a-nav b { color: #1A1A1A; font-weight: 600; }
+
+.a-hero { padding: 40px 32px 32px; }
+.a-eyebrow { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5BA64A; margin-bottom: 10px; }
+.a-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 52px; line-height: 1.0; letter-spacing: -0.04em; color: #1A1A1A; margin-bottom: 14px; }
+.a-title em { font-style: normal; color: #5BA64A; }
+.a-sub { font-family: 'Inter', sans-serif; font-size: 15px; color: #757575; line-height: 1.6; max-width: 340px; margin-bottom: 24px; }
+.a-btn { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; background: #5BA64A; color: #fff; border: none; padding: 12px 28px; border-radius: 6px; cursor: pointer; letter-spacing: -0.01em; }
+
+.a-metrics { padding: 0 32px 32px; display: flex; gap: 16px; }
+.a-card { flex: 1; background: #F8F8F8; border-radius: 10px; padding: 18px 18px 14px; }
+.a-card-label { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 6px; }
+.a-card-val { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: #1A1A1A; line-height: 1; }
+.a-card-delta { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: #5BA64A; margin-top: 4px; }
+
+.a-section { padding: 0 32px 32px; }
+.a-section-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: #1A1A1A; margin-bottom: 14px; }
+.a-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid #F0F0F0; font-family: 'Inter', sans-serif; font-size: 13px; color: #3F3F3F; }
+.a-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+.success { background: #D4EDD0; color: #3D7A30; }
+.warning { background: #FDECD9; color: #C05A1A; }
+.info    { background: #D0DAEF; color: #2B4492; }
+
+
+/* ── OPTION B: Apple / iOS Clean (Plus Jakarta Sans) ── */
+.b-topbar {
+  padding: 14px 24px;
+  border-bottom: 1px solid #EEEEEE;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.b-logo { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 15px; color: #1A1A1A; letter-spacing: -0.01em; }
+.b-logo span { color: #5BA64A; }
+.b-nav { display: flex; gap: 20px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: #9E9E9E; }
+.b-nav b { color: #1A1A1A; font-weight: 600; }
+
+.b-hero { padding: 40px 32px 32px; }
+.b-eyebrow { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5BA64A; margin-bottom: 10px; }
+.b-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 42px; line-height: 1.1; letter-spacing: -0.025em; color: #1A1A1A; margin-bottom: 14px; }
+.b-title em { font-style: normal; color: #5BA64A; }
+.b-sub { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 400; color: #757575; line-height: 1.6; max-width: 340px; margin-bottom: 24px; }
+.b-btn { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 600; background: #5BA64A; color: #fff; border: none; padding: 12px 28px; border-radius: 8px; cursor: pointer; }
+
+.b-metrics { padding: 0 32px 32px; display: flex; gap: 16px; }
+.b-card { flex: 1; background: #F8F8F8; border-radius: 12px; padding: 18px 18px 14px; }
+.b-card-label { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #9E9E9E; margin-bottom: 6px; }
+.b-card-val { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 32px; font-weight: 800; letter-spacing: -0.02em; color: #1A1A1A; line-height: 1; }
+.b-card-delta { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 600; color: #5BA64A; margin-top: 4px; }
+
+.b-section { padding: 0 32px 32px; }
+.b-section-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; color: #1A1A1A; margin-bottom: 14px; }
+.b-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid #F0F0F0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: #3F3F3F; }
+</style>
+</head>
+<body>
+
+<div class="label-row">
+  <div class="col-label">Opción A — Editorial Bold <br><span style="color:#5BA64A;font-size:10px">Syne + Inter · impactante, moderno, dinámico</span></div>
+  <div class="col-label">Opción B — Apple / iOS Clean <br><span style="color:#3B5BA5;font-size:10px">Plus Jakarta Sans · legible, premium, seguro</span></div>
+</div>
+
+<div class="panels">
+
+  <!-- OPTION A -->
+  <div class="panel">
+    <div class="a-topbar">
+      <div class="a-logo">seller<span>center</span></div>
+      <div class="a-nav"><span>Dashboard</span><b>Productos</b><span>Pedidos</span><span>Analíticas</span></div>
+      <div style="width:30px;height:30px;border-radius:50%;background:#5BA64A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;font-family:Inter">MV</div>
+    </div>
+    <div class="a-hero">
+      <div class="a-eyebrow">Bienvenido de vuelta</div>
+      <div class="a-title">Gestiona tus<br>ventas <em>hoy.</em></div>
+      <div class="a-sub">Tu panel de control en tiempo real. Revisa métricas, actualiza productos y gestiona pedidos desde un solo lugar.</div>
+      <button class="a-btn">Ver mis pedidos →</button>
+    </div>
+    <div class="a-metrics">
+      <div class="a-card">
+        <div class="a-card-label">Ventas</div>
+        <div class="a-card-val">$4.2M</div>
+        <div class="a-card-delta">↑ 12.4%</div>
+      </div>
+      <div class="a-card">
+        <div class="a-card-label">Pedidos</div>
+        <div class="a-card-val">1,284</div>
+        <div class="a-card-delta">↑ 8.1%</div>
+      </div>
+      <div class="a-card">
+        <div class="a-card-label">Productos</div>
+        <div class="a-card-val">347</div>
+        <div class="a-card-delta">↑ 3 hoy</div>
+      </div>
+    </div>
+    <div class="a-section">
+      <div class="a-section-title">Pedidos recientes</div>
+      <div class="a-row"><span>ORD-20481 — Nike Air Max 270</span><span class="a-badge success">Enviado</span></div>
+      <div class="a-row"><span>ORD-20482 — Polera Tommy</span><span class="a-badge warning">Pendiente</span></div>
+      <div class="a-row"><span>ORD-20483 — Mochila Samsonite</span><span class="a-badge info">En revisión</span></div>
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="panel">
+    <div class="b-topbar">
+      <div class="b-logo">seller<span>center</span></div>
+      <div class="b-nav"><span>Dashboard</span><b>Productos</b><span>Pedidos</span><span>Analíticas</span></div>
+      <div style="width:30px;height:30px;border-radius:50%;background:#5BA64A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;font-family:'Plus Jakarta Sans'">MV</div>
+    </div>
+    <div class="b-hero">
+      <div class="b-eyebrow">Bienvenido de vuelta</div>
+      <div class="b-title">Gestiona tus<br>ventas <em>hoy.</em></div>
+      <div class="b-sub">Tu panel de control en tiempo real. Revisa métricas, actualiza productos y gestiona pedidos desde un solo lugar.</div>
+      <button class="b-btn">Ver mis pedidos →</button>
+    </div>
+    <div class="b-metrics">
+      <div class="b-card">
+        <div class="b-card-label">Ventas</div>
+        <div class="b-card-val">$4.2M</div>
+        <div class="b-card-delta">↑ 12.4%</div>
+      </div>
+      <div class="b-card">
+        <div class="b-card-label">Pedidos</div>
+        <div class="b-card-val">1,284</div>
+        <div class="b-card-delta">↑ 8.1%</div>
+      </div>
+      <div class="b-card">
+        <div class="b-card-label">Productos</div>
+        <div class="b-card-val">347</div>
+        <div class="b-card-delta">↑ 3 hoy</div>
+      </div>
+    </div>
+    <div class="b-section">
+      <div class="b-section-title">Pedidos recientes</div>
+      <div class="b-row"><span>ORD-20481 — Nike Air Max 270</span><span class="a-badge success">Enviado</span></div>
+      <div class="b-row"><span>ORD-20482 — Polera Tommy</span><span class="a-badge warning">Pendiente</span></div>
+      <div class="b-row"><span>ORD-20483 — Mochila Samsonite</span><span class="a-badge info">En revisión</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:1200px;width:100%;background:#fff;border-radius:12px;padding:20px 28px;box-shadow:0 2px 12px rgba(0,0,0,0.07);display:flex;gap:32px;">
+  <div style="flex:1">
+    <div style="font-size:12px;font-weight:700;color:#5BA64A;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Opción A — Mi recomendación</div>
+    <div style="font-size:13px;color:#3F3F3F;line-height:1.6"><b>Syne</b> para display/headlines + <b>Inter</b> para UI. Más carácter, más dinámico. Las métricas grandes se leen como datos importantes, no solo texto. Contrasta bien con el verde corporativo. Buena elección si quieren que el dashboard se sienta moderno y diferenciado dentro del ecosistema Falabella.</div>
+  </div>
+  <div style="flex:1">
+    <div style="font-size:12px;font-weight:700;color:#3B5BA5;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Opción B — También sólida</div>
+    <div style="font-size:13px;color:#3F3F3F;line-height:1.6"><b>Plus Jakarta Sans</b> como sistema único. Más cerca del estilo iOS/Apple. Muy legible en tablas y formularios, menos distracción visual. Ideal si el foco es claridad funcional sobre personalidad. Más fácil de implementar (una sola familia). Más "safe" para enterprise B2B.</div>
+  </div>
+</div>
+
+</body></html>
