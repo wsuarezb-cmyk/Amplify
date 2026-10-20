@@ -15,6 +15,7 @@ export const NAV_GROUPS = [
       { id: 'sec-filtros',   label: 'Filtros' },
       { id: 'sec-kpis',      label: 'KPIs' },
       { id: 'sec-tendencia', label: 'Tendencia' },
+      { id: 'sec-trace',     label: 'Trace', visibleInViews: ['ejecutiva'] },
     ],
   },
   {
@@ -33,7 +34,9 @@ export const NAV_GROUPS = [
 
 /** Secciones presentes en el DOM según la vista activa (para el observer). */
 export function seccionesVisibles(view) {
-  const ejecutiva = NAV_GROUPS[0].sections;
+  const ejecutiva = NAV_GROUPS[0].sections.filter(
+    section => !section.visibleInViews || section.visibleInViews.includes(view),
+  );
   return view === 'operativa'
     ? [...ejecutiva, ...NAV_GROUPS[1].sections]
     : ejecutiva;

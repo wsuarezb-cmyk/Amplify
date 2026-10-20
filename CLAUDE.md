@@ -28,6 +28,8 @@ Cloud Run (`pitch-app`, us-central1, proyecto `flb-rtl-3p-sx-reg-dev`).
   - `contexts/PitchDataContext.jsx` es el corazón del cross-filter (`filteredRows` a nivel
     interacción, `criterionRows` a nivel criterio).
   - Los gráficos viven en `components/reporteria/`.
+  - La sección **Trace** de la Vista Ejecutiva embeberá el reporte publicado de Looker Studio en un
+    `iframe`; los cambios del mismo reporte se reflejan desde Looker, sujetos a su caché y permisos.
   - Las agregaciones puras están en `utils/aggregations.js`.
   - El semáforo está en `utils/scores.js`.
 - **Calibración:** `routers/pitch_calibracion.py` → `services/calibracion_service.py`. Frontend en
