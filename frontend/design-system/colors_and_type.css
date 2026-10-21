@@ -1,5 +1,5 @@
 /* ============================================================
-   PITCH — Design System Tokens
+   AMPLIFY — Design System Tokens
    Fuente única de verdad de color y tipografía.
    Los componentes consumen var(--color-*) — nunca hex inline.
    ============================================================ */
@@ -12,7 +12,8 @@
   --color-green:       #5BA64A;
   --color-blue:        #3B5BA5;
   --color-red:         #D91F4D;
-  --color-orange:      #E97132;   /* Marca Pitch */
+  --color-orange:      #E97132;
+  --color-yellow:      #FFF47A;   /* Marca Amplify */
   --color-gray-dot:    #9E9E9E;
 
   /* ─── NEUTRAL SCALE ──────────────────────────────────────── */
@@ -49,7 +50,15 @@
   --color-red-300:     #F07494;
   --color-red-100:     #FAD0DC;
 
-  /* ─── ORANGE SCALE (marca Pitch) ─────────────────────────── */
+  /* ─── YELLOW SCALE (marca Amplify) ───────────────────────── */
+  /* 500 es el color de marca; 700/900 se usan como texto sobre fondos claros. */
+  --color-yellow-900:  #4D4500;
+  --color-yellow-700:  #736700;
+  --color-yellow-500:  #FFF47A;
+  --color-yellow-300:  #E6D84A;
+  --color-yellow-100:  #FFFBD6;
+
+  /* ─── ORANGE SCALE ───────────────────────────────────────── */
   --color-orange-900:  #6E3013;
   --color-orange-700:  #B4511E;
   --color-orange-500:  #E97132;
@@ -68,14 +77,15 @@
   --color-fg-muted:    var(--color-gray-600);
   --color-fg-subtle:   var(--color-gray-500);
   --color-fg-on-dark:  var(--color-white);
+  --color-fg-on-primary: var(--color-black);
 
-  --color-primary:     var(--color-orange-500);
-  --color-primary-dark: var(--color-orange-700);
-  --color-primary-light: var(--color-orange-100);
+  --color-primary:     var(--color-yellow-500);
+  --color-primary-dark: var(--color-yellow-700);
+  --color-primary-light: var(--color-yellow-100);
 
-  --color-accent:      var(--color-orange-500);
-  --color-accent-dark: var(--color-orange-700);
-  --color-accent-light: var(--color-orange-100);
+  --color-accent:      var(--color-yellow-500);
+  --color-accent-dark: var(--color-yellow-700);
+  --color-accent-light: var(--color-yellow-100);
 
   --color-danger:      var(--color-red-500);
   --color-danger-light: var(--color-red-100);

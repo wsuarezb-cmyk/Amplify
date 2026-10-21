@@ -15,7 +15,6 @@ export const NAV_GROUPS = [
       { id: 'sec-filtros',   label: 'Filtros' },
       { id: 'sec-kpis',      label: 'KPIs' },
       { id: 'sec-tendencia', label: 'Tendencia' },
-      { id: 'sec-trace',     label: 'Trace', visibleInViews: ['ejecutiva'] },
     ],
   },
   {

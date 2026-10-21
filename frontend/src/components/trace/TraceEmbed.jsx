@@ -1,4 +1,4 @@
-import ChartCard from './ChartCard.jsx';
+import ChartCard from '../reporteria/ChartCard.jsx';
 
 const TRACE_EMBED_URL =
   'https://datastudio.google.com/embed/reporting/252d6950-c6cd-46d0-88c7-4eebf717b221/page/h9a1F';

@@ -11,6 +11,8 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   DataBarVerticalRegular,
+  CalendarLtrRegular,
+  SearchRegular,
   ClipboardTaskListLtrRegular,
   BookInformationRegular,
   ChevronLeftRegular,
@@ -23,6 +25,8 @@ import { NAV_GROUPS } from '../../constants/reporteriaSections.js';
 
 const APP_ITEMS = [
   { id: 'reporteria', label: 'Reportería', path: ROUTES.REPORTERIA, Icon: DataBarVerticalRegular, minRole: ROLES.VIEWER },
+  { id: 'planner', label: 'Planner', path: ROUTES.PLANNER, Icon: CalendarLtrRegular, minRole: ROLES.VIEWER },
+  { id: 'trace', label: 'Trace', path: ROUTES.TRACE, Icon: SearchRegular, minRole: ROLES.VIEWER },
   { id: 'calibracion', label: 'Calibración', path: ROUTES.CALIBRACION, Icon: ClipboardTaskListLtrRegular, minRole: ROLES.AUDITOR },
   { id: 'glosario', label: 'Glosario', path: ROUTES.GLOSARIO, Icon: BookInformationRegular, minRole: ROLES.VIEWER },
 ];

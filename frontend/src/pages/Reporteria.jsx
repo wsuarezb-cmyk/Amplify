@@ -20,7 +20,6 @@ import ComparativaConfigurable from '../components/reporteria/ComparativaConfigu
 import OwnerManagerTable from '../components/reporteria/OwnerManagerTable.jsx';
 import CaseDrilldown from '../components/reporteria/CaseDrilldown.jsx';
 import VistaAgente from '../components/reporteria/VistaAgente.jsx';
-import TraceEmbed from '../components/reporteria/TraceEmbed.jsx';
 
 function ReporteriaContent() {
   const { error, reload, meta, loading } = usePitchData();
@@ -107,12 +106,6 @@ function ReporteriaContent() {
       <section id="sec-tendencia">
         <TrendChart />
       </section>
-
-      {view === 'ejecutiva' && (
-        <section id="sec-trace">
-          <TraceEmbed />
-        </section>
-      )}
 
       {view === 'operativa' && (
         <div className="fade-slide-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

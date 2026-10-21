@@ -199,7 +199,7 @@ export default function PitchFilterBar() {
               background: 'var(--color-primary)', border: 'none',
               borderRadius: 'var(--radius-sm)', cursor: 'pointer',
               fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)',
-              fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-fg-on-dark)',
+              fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-fg-on-primary)',
             }}
           >
             <DismissRegular style={{ width: 14, height: 14 }} />

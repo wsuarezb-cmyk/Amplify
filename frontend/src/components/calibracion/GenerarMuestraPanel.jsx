@@ -245,7 +245,7 @@ export default function GenerarMuestraPanel({ onGenerated }) {
                 background: 'var(--color-primary)', border: 'none',
                 borderRadius: 'var(--radius-sm)', cursor: 'pointer',
                 fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)',
-                fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-fg-on-dark)',
+                fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-fg-on-primary)',
               }}
             >
               {loadingPreview ? 'Calculando…' : '2 · Calcular cobertura'}
@@ -416,7 +416,7 @@ export default function GenerarMuestraPanel({ onGenerated }) {
             border: 'none', borderRadius: 'var(--radius-sm)',
             cursor: generating || totalDistribuido !== preview.total_asignado ? 'not-allowed' : 'pointer',
             fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)',
-            fontWeight: 'var(--font-weight-bold)', color: 'var(--color-fg-on-dark)',
+            fontWeight: 'var(--font-weight-bold)', color: 'var(--color-fg-on-primary)',
           }}
         >
           {generating ? 'Generando…' : `3 · Confirmar y generar (${preview.total_asignado} unidades)`}

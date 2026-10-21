@@ -21,25 +21,25 @@ export default function Unauthorized() {
       }}>
         <span style={{
           fontFamily: 'var(--font-display)', fontWeight: 'var(--font-weight-extrabold)',
-          fontSize: 28, color: 'var(--color-primary)', letterSpacing: 'var(--tracking-tight)',
+          fontSize: 28, color: 'var(--color-black)', letterSpacing: 'var(--tracking-tight)',
         }}>
-          Pitch
+          Amplify
         </span>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontWeight: 'var(--font-weight-semibold)',
           fontSize: 18, color: 'var(--color-black)', margin: 0,
         }}>
-          Tu cuenta no tiene acceso a Pitch
+          Tu cuenta no tiene acceso a Amplify
         </h1>
         <p style={{ fontSize: 14, color: 'var(--color-fg-subtle)', margin: 0, lineHeight: 1.5 }}>
           Ingresaste correctamente con Google, pero tu usuario no está habilitado
-          en Pitch. Contacta al administrador para solicitar acceso.
+          en Amplify. Contacta al administrador para solicitar acceso.
         </p>
         <button
           onClick={logout}
           style={{
             marginTop: 8, padding: '10px 20px',
-            background: 'var(--color-primary)', color: 'var(--color-fg-on-dark)',
+            background: 'var(--color-primary)', color: 'var(--color-fg-on-primary)',
             border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
             fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 'var(--font-weight-semibold)',
           }}

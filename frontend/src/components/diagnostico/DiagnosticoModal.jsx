@@ -100,7 +100,7 @@ export default function DiagnosticoModal({ onClose }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-display)',
           fontWeight: 'var(--font-weight-bold)', fontSize: 'var(--text-md)', color: 'var(--color-black)' }}>
-          <SparkleRegular style={{ width: 20, height: 20, color: 'var(--color-primary)' }} />
+          <SparkleRegular style={{ width: 20, height: 20, color: 'var(--color-primary-dark)' }} />
           Diagnóstico con IA
         </div>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)',
@@ -158,7 +158,7 @@ export default function DiagnosticoModal({ onClose }) {
               display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', border: 'none',
               borderRadius: 'var(--radius-sm)',
               background: puedeGenerar ? 'var(--color-primary)' : 'var(--color-gray-400)',
-              color: 'var(--color-fg-on-dark)', cursor: puedeGenerar ? 'pointer' : 'not-allowed',
+              color: 'var(--color-fg-on-primary)', cursor: puedeGenerar ? 'pointer' : 'not-allowed',
               fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)',
             }}
           >

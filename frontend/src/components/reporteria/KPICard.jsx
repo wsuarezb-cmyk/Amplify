@@ -7,7 +7,7 @@ const skeletonStyle = {
 };
 
 export default function KPICard({ label, value, sublabel, color, loading }) {
-  const displayColor = color ?? 'var(--color-primary)';
+  const displayColor = color ?? 'var(--color-primary-dark)';
 
   return (
     <div style={{

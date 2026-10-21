@@ -87,7 +87,7 @@ body {
 
 /* ============================================================
    Navbar estilo Canon (referencia: canon-compliance/NavMenu)
-   con acento naranja de Pitch.
+   con acento amarillo de Amplify.
    ============================================================ */
 .pitch-navbar {
   position: relative;
@@ -204,7 +204,7 @@ body {
   width: 32px; height: 32px;
   border-radius: var(--radius-full);
   background: var(--color-primary);
-  color: var(--color-fg-on-dark);
+  color: var(--color-fg-on-primary);
   display: flex; align-items: center; justify-content: center;
   font-size: 0.7rem;
   font-weight: var(--font-weight-bold);
@@ -260,7 +260,7 @@ body {
 .section-chip.active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: var(--color-fg-on-dark);
+  color: var(--color-fg-on-primary);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -371,7 +371,7 @@ section[id^="sec-"] { scroll-margin-top: 56px; }
   transition: color var(--transition-fast);
 }
 .sidebar-group-header:hover { color: var(--color-primary-dark); }
-.sidebar-group-header.active { color: var(--color-primary); }
+.sidebar-group-header.active { color: var(--color-primary-dark); }
 
 .sidebar-group-items { display: flex; flex-direction: column; gap: 1px; }
 .sidebar-section {
@@ -473,7 +473,7 @@ section[id^="sec-"] { scroll-margin-top: 56px; }
   align-items: stretch;
   border-radius: var(--radius-full);
   background: var(--color-primary);
-  color: var(--color-fg-on-dark);
+  color: var(--color-fg-on-primary);
   box-shadow: var(--shadow-lg);
   animation: fadeSlideIn 0.25s ease both;
   transition: box-shadow var(--transition-fast);
@@ -489,7 +489,7 @@ section[id^="sec-"] { scroll-margin-top: 56px; }
   cursor: grab;
   font-size: 16px;
   line-height: 1;
-  color: color-mix(in srgb, var(--color-fg-on-dark) 75%, transparent);
+  color: color-mix(in srgb, var(--color-fg-on-primary) 75%, transparent);
   touch-action: none;
 }
 .clear-filters-grip:active { cursor: grabbing; }

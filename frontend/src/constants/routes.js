@@ -5,6 +5,8 @@
 
 export const ROUTES = {
   REPORTERIA:       '/reporteria',
+  PLANNER:          '/planner',
+  TRACE:            '/trace',
   CALIBRACION:      '/calibracion',
   CALIBRACION_CASO: '/calibracion/caso/:interaction_id',
   GLOSARIO:         '/glosario',

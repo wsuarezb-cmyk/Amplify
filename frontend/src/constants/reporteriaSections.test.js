@@ -2,13 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NAV_GROUPS, seccionesVisibles } from './reporteriaSections.js';
 
-test('Trace pertenece a la navegación de Vista Ejecutiva', () => {
-  assert.ok(NAV_GROUPS[0].sections.some(section => section.id === 'sec-trace'));
+test('Trace ya no forma parte de la navegación de Reportería', () => {
+  const ids = NAV_GROUPS.flatMap(group => group.sections.map(section => section.id));
+  assert.ok(!ids.includes('sec-trace'));
 });
 
-test('Trace solo está visible en la Vista Ejecutiva', () => {
-  assert.ok(seccionesVisibles('ejecutiva').some(section => section.id === 'sec-trace'));
-  assert.ok(!seccionesVisibles('operativa').some(section => section.id === 'sec-trace'));
+test('la Vista Ejecutiva muestra sus secciones en ambas vistas', () => {
+  assert.deepEqual(
+    seccionesVisibles('ejecutiva').map(section => section.id),
+    NAV_GROUPS[0].sections.map(section => section.id),
+  );
 });
 
 test('las secciones ejecutivas comunes siguen visibles en ambas vistas', () => {

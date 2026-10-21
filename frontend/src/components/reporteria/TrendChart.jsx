@@ -134,7 +134,7 @@ export default function TrendChart() {
                 style={{
                   padding: '5px 14px', border: 'none', cursor: 'pointer',
                   background: active ? 'var(--color-primary)' : 'var(--color-surface)',
-                  color: active ? 'var(--color-fg-on-dark)' : 'var(--color-fg-muted)',
+                  color: active ? 'var(--color-fg-on-primary)' : 'var(--color-fg-muted)',
                   fontFamily: 'var(--font-body)', fontSize: 'var(--text-xs)',
                   fontWeight: active ? 'var(--font-weight-semibold)' : 'var(--font-weight-regular)',
                   transition: 'var(--transition-fast)',
@@ -202,8 +202,8 @@ export default function TrendChart() {
                 return (
                   <Cell
                     key={entry.fecha}
-                    fill={highlight ? 'var(--color-primary)' : 'var(--color-orange-100)'}
-                    stroke={highlight ? 'var(--color-primary-dark)' : 'var(--color-orange-300)'}
+                    fill={highlight ? 'var(--color-primary)' : 'var(--color-primary-light)'}
+                    stroke={highlight ? 'var(--color-primary-dark)' : 'var(--color-yellow-300)'}
                     fillOpacity={dimmed ? 0.3 : 1}
                   />
                 );
@@ -211,7 +211,7 @@ export default function TrendChart() {
             </Bar>
             <Line
               yAxisId="score" type="monotone" dataKey="score"
-              stroke="var(--color-primary)" strokeWidth={2.2}
+              stroke="var(--color-primary-dark)" strokeWidth={2.2}
               dot={gran !== 'dia'} activeDot={{ r: 4 }}
               connectNulls
             />

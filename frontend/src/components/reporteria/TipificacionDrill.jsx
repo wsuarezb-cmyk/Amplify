@@ -83,7 +83,7 @@ export default function TipificacionDrill() {
                 style={{
                   padding: '4px 12px', border: 'none', cursor: 'pointer',
                   background: active ? 'var(--color-primary)' : 'var(--color-surface)',
-                  color: active ? 'var(--color-fg-on-dark)' : 'var(--color-fg-muted)',
+                  color: active ? 'var(--color-fg-on-primary)' : 'var(--color-fg-muted)',
                   fontFamily: 'var(--font-body)', fontSize: 'var(--text-xs)',
                   fontWeight: active ? 'var(--font-weight-semibold)' : 'var(--font-weight-regular)',
                 }}

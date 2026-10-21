@@ -219,7 +219,7 @@ export default function VistaAgente() {
                 <Line type="monotone" dataKey="scoreEquipo"
                   stroke="var(--color-gray-400)" strokeWidth={1.6} dot={false} connectNulls />
                 <Line type="monotone" dataKey="scoreAgente"
-                  stroke="var(--color-primary)" strokeWidth={2.4} dot={{ r: 2.5 }} connectNulls />
+                  stroke="var(--color-primary-dark)" strokeWidth={2.4} dot={{ r: 2.5 }} connectNulls />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

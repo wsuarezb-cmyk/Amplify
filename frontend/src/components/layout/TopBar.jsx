@@ -2,7 +2,7 @@
  * TopBar — barra de marca (la navegación de app vive en el Sidebar).
  *
  * Empieza con "Overture SX" + la onda de 4 colores (clickeable → redirige a
- * Overture), un separador, y luego la marca Pitch con su leyenda (sin repetir
+ * Overture), un separador, y luego la marca Amplify con su leyenda (sin repetir
  * la onda). A la derecha, el menú de usuario. Estilos en index.css.
  */
 
@@ -62,10 +62,10 @@ export default function TopBar() {
       {/* Separador */}
       <span className="brand-separator" aria-hidden="true" />
 
-      {/* Marca Pitch (sin repetir la onda) */}
+      {/* Marca Amplify (sin repetir la onda) */}
       <div className="pitch-brand-only">
-        <span className="pitch-brand-text">Pitch</span>
-        <span className="pitch-brand-subtitle">"Evalúa precisión y desviaciones a partir de SAACA"</span>
+        <span className="pitch-brand-text">Amplify</span>
+        <span className="pitch-brand-subtitle">"Amplificar mensajes y comunicaciones"</span>
       </div>
 
       <div style={{ flex: 1 }} />

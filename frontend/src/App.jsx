@@ -8,6 +8,8 @@ import Reporteria from './pages/Reporteria.jsx';
 import Calibracion from './pages/Calibracion.jsx';
 import CalibracionCaso from './pages/CalibracionCaso.jsx';
 import Glosario from './pages/Glosario.jsx';
+import Planner from './pages/Planner.jsx';
+import Trace from './pages/Trace.jsx';
 import { ROUTES } from './constants/routes.js';
 import { ROLES } from './constants/roles.js';
 
@@ -42,6 +44,8 @@ function AppGate() {
       <Route element={<Layout />}>
         <Route index element={<Navigate to={ROUTES.REPORTERIA} replace />} />
         <Route path={ROUTES.REPORTERIA} element={<Reporteria />} />
+        <Route path={ROUTES.PLANNER} element={<Planner />} />
+        <Route path={ROUTES.TRACE} element={<Trace />} />
         {/* Glosario — disponible para todos los roles */}
         <Route path={ROUTES.GLOSARIO} element={<Glosario />} />
 

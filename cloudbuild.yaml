@@ -1,27 +1,49 @@
 # ─────────────────────────────────────────────────────────────────
-# cloudbuild.yaml — Pitch
-# Construye la imagen Docker y la sube a Artifact Registry (pitch-repo).
+# cloudbuild.yaml — Amplify
+# Build de la imagen → push a Artifact Registry → deploy a Cloud Run.
+# Lo ejecuta el trigger de Cloud Build en cada push a main.
 #
-# Uso desde Cloud Shell:
-#   gcloud builds submit --config=cloudbuild.yaml --project=flb-rtl-3p-sx-reg-dev .
-#
-# El frontend NO requiere build-args de auth: la identidad viene del header de
-# IAP en runtime (patrón Overture/Canon), no de un Google Client ID de build.
+# ⚠️ El servicio va SIEMPRE con --no-allow-unauthenticated: la identidad viene
+# del header de IAP y solo es confiable si nadie llega al contenedor sin IAP.
+# Usar --update-* (nunca --set-*): --set-* borraría la configuración existente.
 # ─────────────────────────────────────────────────────────────────
 
+substitutions:
+  _REGION: 'us-east4'
+  _REPO: 'sx-reg'
+  _SERVICE: 'amplify-app'
+
 steps:
+  # Paso 1: Build de la imagen Docker
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:$BUILD_ID'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
       - '-t'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:latest'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest'
       - '.'
 
-images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:$BUILD_ID'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/pitch-repo/pitch-app:latest'
+  # Paso 2: Push de la imagen a Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest']
+
+  # Paso 3: Deploy a Cloud Run
+  # Requiere roles/run.admin y roles/iam.serviceAccountUser en la cuenta del trigger.
+  # Mientras no estén otorgados, el deploy se hace a mano desde Cloud Shell.
+  # Una vez otorgados, descomentar este bloque (solo cambia la imagen; conserva la config):
+  #
+  # - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  #   entrypoint: gcloud
+  #   args:
+  #     - 'run'
+  #     - 'deploy'
+  #     - '${_SERVICE}'
+  #     - '--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
+  #     - '--region=${_REGION}'
 
 options:
   logging: CLOUD_LOGGING_ONLY

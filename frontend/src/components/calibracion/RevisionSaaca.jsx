@@ -242,7 +242,7 @@ export default function RevisionSaaca({ interactionId, interactionType, revision
           style={{
             width: '100%', height: 40,
             background: listo && !submitting ? 'var(--color-primary)' : 'var(--color-gray-400)',
-            color: 'var(--color-fg-on-dark)', border: 'none', borderRadius: 'var(--radius-sm)',
+            color: 'var(--color-fg-on-primary)', border: 'none', borderRadius: 'var(--radius-sm)',
             fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)',
             fontWeight: 'var(--font-weight-bold)',
             cursor: listo && !submitting ? 'pointer' : 'not-allowed',

@@ -20,7 +20,7 @@ export default function DiagnosticoButton() {
           background: 'var(--color-primary)', border: '1px solid var(--color-primary)',
           borderRadius: 'var(--radius-sm)', cursor: 'pointer',
           fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)',
-          fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-fg-on-dark)',
+          fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-fg-on-primary)',
         }}
       >
         <SparkleRegular style={{ width: 15, height: 15 }} />

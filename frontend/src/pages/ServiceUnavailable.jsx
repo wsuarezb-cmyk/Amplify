@@ -22,9 +22,9 @@ export default function ServiceUnavailable() {
       }}>
         <span style={{
           fontFamily: 'var(--font-display)', fontWeight: 'var(--font-weight-extrabold)',
-          fontSize: 28, color: 'var(--color-primary)', letterSpacing: 'var(--tracking-tight)',
+          fontSize: 28, color: 'var(--color-black)', letterSpacing: 'var(--tracking-tight)',
         }}>
-          Pitch
+          Amplify
         </span>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontWeight: 'var(--font-weight-semibold)',
@@ -40,7 +40,7 @@ export default function ServiceUnavailable() {
             onClick={retry}
             style={{
               padding: '10px 20px',
-              background: 'var(--color-primary)', color: 'var(--color-fg-on-dark)',
+              background: 'var(--color-primary)', color: 'var(--color-fg-on-primary)',
               border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
               fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 'var(--font-weight-semibold)',
             }}

@@ -83,7 +83,7 @@ function ThreadBlockView({ block, isTarget }) {
         </span>
         {isTarget && (
           <span style={{
-            background: 'var(--color-primary)', color: 'var(--color-fg-on-dark)',
+            background: 'var(--color-primary)', color: 'var(--color-fg-on-primary)',
             borderRadius: 'var(--radius-sm)', padding: '1px 7px',
             fontFamily: 'var(--font-body)', fontSize: 9,
             fontWeight: 'var(--font-weight-bold)',

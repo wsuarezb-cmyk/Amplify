@@ -347,7 +347,7 @@ export default function CalibracionCaso() {
                   onClick={() => navigate('/calibracion')}
                   style={{
                     width: '100%', height: 38,
-                    background: 'var(--color-primary)', color: 'var(--color-fg-on-dark)',
+                    background: 'var(--color-primary)', color: 'var(--color-fg-on-primary)',
                     border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
                     fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)',
                     fontWeight: 'var(--font-weight-bold)',
