@@ -65,7 +65,7 @@ export default function TopBar() {
       {/* Marca Amplify (sin repetir la onda) */}
       <div className="pitch-brand-only">
         <span className="pitch-brand-text">Amplify</span>
-        <span className="pitch-brand-subtitle">"Amplificar mensajes y comunicaciones"</span>
+        <span className="pitch-brand-subtitle">"Amplificar mensajes y comunicaciones."</span>
       </div>
 
       <div style={{ flex: 1 }} />
