@@ -102,14 +102,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         try:
             user = get_user_by_email(get_bq(), email)
         except Exception as exc:
-            logger.error("Error resolviendo usuario %s: %s", email, exc)
+            logger.error("Error resolviendo usuario (tipo=%s)", type(exc).__name__)
             return JSONResponse(
                 status_code=503,
                 content={"detail": "No se pudo verificar el acceso. Intenta nuevamente."},
             )
 
         if user is None:
-            logger.info("Acceso denegado — email no está en pitch_users: %s", email)
+            logger.info("Acceso denegado — usuario no está en pitch_users")
             return JSONResponse(status_code=403, content={"detail": "Usuario no autorizado"})
 
         request.state.user = user

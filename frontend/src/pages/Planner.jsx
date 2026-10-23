@@ -1,35 +1,36 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarLtrRegular,
   ChevronLeftRegular,
   ChevronRightRegular,
+  ChevronDownRegular,
   DismissRegular,
   AddRegular,
 } from '@fluentui/react-icons';
 import './Planner.css';
+import { createPlannerManualRequest, getPlannerManualRequests } from '../services/api.js';
+import ApprovalInbox from '../components/planner/ApprovalInbox.jsx';
 
 const COUNTRIES = ['CL', 'CO', 'PE'];
-const CHANNELS = ['Email', 'WhatsApp', 'Seller Center', 'SMS'];
-const OWNERS = ['Ana María L.', 'Camila F.', 'Kristel Z.', 'Steffano Q.', 'Jair G.', 'William S.'];
 const COUNTRY_COLORS = { CL: '#E97132', CO: '#3B5BA5', PE: '#2E8B62' };
-const INITIAL_REQUESTS = [
-  { id: 'COM-1040', title: 'Cyber Day: preparación de stock', country: 'CL', channel: 'Email', date: '2026-10-05', status: 'Enviado', priority: 'Alta', audience: 'Sellers FBF activos', owner: 'Ana María L.' },
-  { id: 'COM-1041', title: 'Nueva política de devoluciones', country: 'CO', channel: 'Email', date: '2026-10-07', status: 'Enviado', priority: 'Alta', audience: 'Todos activos CO', owner: 'Camila F.' },
-  { id: 'COM-1042', title: 'Trigger F.media: 5 SKUs', country: 'CL', channel: 'Email', date: '2026-10-09', status: 'Enviado', priority: 'Media', audience: 'Nuevos con 5 SKUs', owner: 'Kristel Z.' },
-  { id: 'COM-1043', title: 'Webinar Promociones Q4', country: 'PE', channel: 'Email', date: '2026-10-14', status: 'Programado', priority: 'Media', audience: 'Sellers con Promos', owner: 'Steffano Q.' },
-  { id: 'COM-1044', title: 'Recordatorio facturación', country: 'CO', channel: 'WhatsApp', date: '2026-10-14', status: 'Aprobado', priority: 'Alta', audience: 'Todos activos CO', owner: 'Jair G.' },
-  { id: 'COM-1045', title: 'Incidentes: monto a regularizar', country: 'CL', channel: 'Email', date: '2026-10-15', status: 'En revisión', priority: 'Alta', audience: 'Sellers con incidente', owner: 'William S.' },
-  { id: 'COM-1046', title: 'Actualización datos legales', country: 'CO', channel: 'Email', date: '2026-10-15', status: 'En revisión', priority: 'Media', audience: 'Todos activos CO', owner: 'Ana María L.' },
-  { id: 'COM-1047', title: 'F.boost: lanzamiento', country: 'CL', channel: 'Email', date: '2026-10-20', status: 'Borrador', priority: 'Media', audience: 'Alta adopción', owner: 'Camila F.' },
-  { id: 'COM-1048', title: 'Black Friday: calendario', country: 'PE', channel: 'Seller Center', date: '2026-10-22', status: 'Borrador', priority: 'Alta', audience: 'Todos activos PE', owner: 'Kristel Z.' },
-  { id: 'COM-1049', title: 'Encuesta NPS sellers', country: 'CL', channel: 'Email', date: '2026-10-27', status: 'Aprobado', priority: 'Baja', audience: 'Muestra NPS', owner: 'Steffano Q.' },
-  { id: 'COM-1050', title: 'Cambio horario despacho', country: 'PE', channel: 'WhatsApp', date: '2026-10-28', status: 'Borrador', priority: 'Alta', audience: 'Sellers FBS PE', owner: 'Jair G.' },
-  { id: 'COM-1051', title: 'Onboarding nuevos sellers', country: 'CO', channel: 'Email', date: '2026-10-30', status: 'Programado', priority: 'Media', audience: 'Nuevos 30 días', owner: 'William S.' },
+const COUNTRY_OPTIONS = [
+  { label: 'Chile', code: 'CL' },
+  { label: 'Perú', code: 'PE' },
+  { label: 'Colombia', code: 'CO' },
 ];
-
+const AUDIENCE_OPTIONS = [
+  'Base segmentada de sellers',
+  'Base completa de sellers',
+  'Sellers internacionales',
+];
+const AREA_OPTIONS = [
+  'Seller Experience', 'VAS', 'Home Delivery', 'Comercial', 'Finanzas', 'Producto', 'Otras',
+];
+const ACTION_OPTIONS = ['Nuevo', 'Modificación', 'Replicar envío'];
+const MATERIAL_OPTIONS = ['Mail', 'Popup', 'Infografía', 'Template de soporte', 'Otras'];
 const EMPTY_FORM = {
-  title: '', country: 'CL', channel: 'Email', priority: 'Media', date: '',
-  owner: OWNERS[0], audience: '', goal: '', notify: true,
+  area: '', areaOtra: '', pais: [], proyecto: '', accion: '', tipo_comunicado: [],
+  tipoComunicadoOtra: '', fecha_envio: '', audiencia: '', url_sellers: '', descripcion: '',
 };
 
 function dateKey(year, month, day) {
@@ -40,24 +41,68 @@ function monthLabel(date) {
   return new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(date);
 }
 
+function countryCode(value) {
+  const pais = value.trim().toLocaleLowerCase('es');
+  if (pais.includes('chile') || pais === 'cl') return 'CL';
+  if (pais.includes('colombia') || pais === 'co') return 'CO';
+  if (pais.includes('perú') || pais.includes('peru') || pais === 'pe') return 'PE';
+  return null;
+}
+
+function countriesFor(request) {
+  return request.countries || [request.country || 'OT'];
+}
+
 function conflictList(request, requests) {
-  return requests.filter(item => item.date === request.date && item.country === request.country
-    && (item.audience === request.audience || item.channel === request.channel));
+  const requestCountries = countriesFor(request);
+  return requests.filter(item => item.id !== request.id
+    && item.date === request.date
+    && countriesFor(item).some(code => requestCountries.includes(code)));
+}
+
+function toCalendarEvent(request) {
+  const countries = (request.pais || '').split(',').map(countryCode).filter(Boolean);
+  return {
+    id: `MAN-${request.manual_solicitud_id}`,
+    title: request.proyecto || request.accion || 'Solicitud manual',
+    country: countries.length === 1 ? countries[0] : countries.length ? 'MULTI' : 'OT',
+    countries: countries.length ? countries : ['OT'],
+    countryLabel: countries.length ? countries.join(', ') : 'OT',
+    date: request.fecha_envio,
+    status: 'Programado',
+    priority: '',
+    audience: request.audiencia || '',
+    channel: request.tipo_comunicado || '',
+    request,
+  };
 }
 
 export default function Planner() {
   const [view, setView] = useState('calendar');
-  const [month, setMonth] = useState(() => new Date(2026, 9, 1));
+  const [requestType, setRequestType] = useState(null);
+  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [country, setCountry] = useState('Todos');
-  const [requests, setRequests] = useState(INITIAL_REQUESTS);
+  const [requests, setRequests] = useState([]);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualError, setManualError] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState({ ...EMPTY_FORM, date: dateKey(2026, 9, 21) });
+  const [form, setForm] = useState({ ...EMPTY_FORM, fecha_envio: dateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) });
   const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setManualLoading(true);
+    getPlannerManualRequests()
+      .then(rows => { if (active) setRequests(rows.map(toCalendarEvent)); })
+      .catch(error => { if (active) setManualError(error.message); })
+      .finally(() => { if (active) setManualLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const visibleRequests = useMemo(
-    () => requests.filter(item => country === 'Todos' || item.country === country),
+    () => requests.filter(item => country === 'Todos' || countriesFor(item).includes(country)),
     [country, requests],
   );
   const monthEvents = visibleRequests.filter(item => {
@@ -79,36 +124,61 @@ export default function Planner() {
 
   function verifyConflicts(event) {
     event.preventDefault();
-    if (!form.date || !form.audience || !form.channel || !form.country) {
-      setMessage({ type: 'error', text: 'Completa fecha, país, canal y audiencia para verificar.' });
+    if (!form.fecha_envio || form.pais.length === 0) {
+      setMessage({ type: 'error', text: 'Completa país y fecha de envío para verificar.' });
       return;
     }
-    const conflicts = conflictList(form, requests);
+    const eventDraft = {
+      id: 'draft',
+      date: form.fecha_envio,
+      countries: form.pais.map(option => COUNTRY_OPTIONS.find(item => item.label === option)?.code).filter(Boolean),
+    };
+    const conflicts = conflictList(eventDraft, requests);
     setMessage(conflicts.length
-      ? { type: 'warning', text: `Hay ${conflicts.length} posible(s) conflicto(s): ${conflicts.map(item => item.title).join(', ')}.` }
-      : { type: 'success', text: 'Sin conflictos para esa fecha, país y audiencia.' });
+      ? { type: 'warning', text: `Hay ${conflicts.length} comunicación(es) programada(s) del mismo país en esa fecha.` }
+      : { type: 'success', text: 'Sin comunicaciones del mismo país y fecha.' });
   }
 
-  function createRequest(event) {
+  async function createRequest(event) {
     event.preventDefault();
-    if (!form.title.trim() || !form.date || !form.audience.trim() || !form.goal.trim()) {
-      setMessage({ type: 'error', text: 'Completa los campos obligatorios antes de crear la solicitud.' });
+    const otherMaterialMissing = form.tipo_comunicado.includes('Otras') && !form.tipoComunicadoOtra.trim();
+    if (!form.fecha_envio || form.pais.length === 0 || !form.audiencia || !form.area
+      || (form.area === 'Otras' && !form.areaOtra.trim()) || !form.accion
+      || form.tipo_comunicado.length === 0 || otherMaterialMissing) {
+      setMessage({ type: 'error', text: 'Completa los campos obligatorios y especifica las opciones “Otras” seleccionadas.' });
       return;
     }
-    const request = {
-      ...form,
-      id: `COM-${1040 + requests.length}`,
-      title: form.title.trim(),
-      audience: form.audience.trim(),
-      status: 'Borrador',
-    };
-    setRequests(current => [...current, request]);
-    setMonth(new Date(`${request.date}T12:00:00`));
-    setCountry('Todos');
-    setSelected(request);
-    setForm({ ...EMPTY_FORM, date: request.date });
-    setMessage({ type: 'success', text: `Solicitud ${request.id} creada como borrador.` });
-    setView('calendar');
+    setManualLoading(true);
+    setMessage(null);
+    try {
+      const created = await createPlannerManualRequest({
+        area: form.area === 'Otras' ? `Otras: ${form.areaOtra.trim()}` : form.area,
+        pais: form.pais.join(', '),
+        proyecto: form.proyecto.trim() || null,
+        accion: form.accion,
+        tipo_comunicado: [
+          ...form.tipo_comunicado.filter(option => option !== 'Otras'),
+          ...(form.tipo_comunicado.includes('Otras') ? [`Otras: ${form.tipoComunicadoOtra.trim()}`] : []),
+        ].join(', '),
+        fecha_envio: form.fecha_envio,
+        audiencia: form.audiencia,
+        url_sellers: form.url_sellers.trim() || null,
+        descripcion: form.descripcion.trim() || null,
+      });
+      const request = toCalendarEvent(created);
+      setRequests(current => [...current, request]);
+      setMonth(new Date(`${request.date}T12:00:00`));
+      setCountry('Todos');
+      setSelected(request);
+      setForm({ ...EMPTY_FORM, fecha_envio: request.date });
+      setMessage({ type: 'success', text: 'Solicitud manual creada y programada en el calendario.' });
+      setRequestType(null);
+      setView('calendar');
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'No se pudo crear la solicitud.' });
+    } finally {
+      setManualLoading(false);
+    }
   }
 
   return (
@@ -126,18 +196,16 @@ export default function Planner() {
 
       <div className="planner-tabs" role="tablist" aria-label="Vistas de Planner">
         <button className={view === 'calendar' ? 'active' : ''} role="tab" aria-selected={view === 'calendar'} onClick={() => setView('calendar')}>Calendario</button>
+        <button className={view === 'approvals' ? 'active' : ''} role="tab" aria-selected={view === 'approvals'} onClick={() => { setView('approvals'); setRequestType(null); setMessage(null); }}>Lista y aprobaciones</button>
         <button className={view === 'request' ? 'active' : ''} role="tab" aria-selected={view === 'request'} onClick={() => { setView('request'); setMessage(null); }}>Nueva solicitud</button>
       </div>
       {view === 'calendar' && message?.type === 'success' && <p className="planner-message success" role="status">{message.text}</p>}
 
-      {view === 'calendar' ? (
+      {view === 'approvals' ? <ApprovalInbox /> : view === 'calendar' ? (
         <>
           <div className="planner-summary" aria-label="Resumen de solicitudes">
-            {['Borrador', 'En revisión', 'Aprobado', 'Programado'].map(status => (
-              <div className="planner-stat" key={status}>
-                <span>{status}</span><strong>{visibleRequests.filter(item => item.status === status).length}</strong>
-              </div>
-            ))}
+            <div className="planner-stat"><span>Solicitudes manuales</span><strong>{visibleRequests.length}</strong></div>
+            <div className="planner-stat"><span>En este mes</span><strong>{monthEvents.length}</strong></div>
             <div className="planner-stat"><span>Conflictos</span><strong className="planner-alert">{monthEvents.filter(item => conflictList(item, monthEvents).length).length}</strong></div>
           </div>
 
@@ -162,8 +230,8 @@ export default function Planner() {
                 <div className={`planner-day${day ? '' : ' empty'}${isToday ? ' today' : ''}`} role="gridcell" key={key || `empty-${index}`}>
                   {day && <><span className="planner-day-number">{day}{isToday && <small>Hoy</small>}</span>
                     <div className="planner-day-events">
-                      {dayEvents.map(item => <button key={item.id} className={`planner-event${conflictList(item, monthEvents).length ? ' conflict' : ''}`} style={{ '--event-color': COUNTRY_COLORS[item.country] }} onClick={() => setSelected(item)} title={`${item.country} · ${item.title}`}>
-                        <span>{item.country}</span>{item.title}
+                      {dayEvents.map(item => <button key={item.id} className={`planner-event${conflictList(item, monthEvents).length ? ' conflict' : ''}`} style={{ '--event-color': COUNTRY_COLORS[item.country] || '#667085' }} onClick={() => setSelected(item)} title={`${item.countryLabel} · ${item.title}`}>
+                        <span>{item.countryLabel}</span>{item.title}
                       </button>)}
                     </div>
                   </>}
@@ -173,48 +241,128 @@ export default function Planner() {
           </div>
           <div className="planner-legend">
             {COUNTRIES.map(code => <span key={code}><i style={{ background: COUNTRY_COLORS[code] }} />{code}</span>)}
-            <span className="planner-conflict-key"><i />Conflicto de fecha/canal/audiencia</span>
+            {monthEvents.some(item => item.countries.includes('OT')) && <span><i style={{ background: '#667085' }} />Otros</span>}
+            <span className="planner-conflict-key"><i />Otras comunicaciones el mismo día y país</span>
           </div>
+          {manualError && <p className="planner-message error" role="alert">No se pudieron cargar las solicitudes manuales: {manualError}</p>}
           {selected && <aside className="planner-detail" aria-live="polite">
-            <div><span className="planner-detail-id">{selected.id} · {selected.country} · {selected.channel}</span><h3>{selected.title}</h3>
-              <p>{selected.date} <span>·</span> {selected.audience} <span>·</span> Responsable: {selected.owner}</p></div>
+            <div><span className="planner-detail-id">{selected.id} · {selected.countryLabel}{selected.channel && ` · ${selected.channel}`}</span><h3>{selected.title}</h3>
+              <p>{selected.date} <span>·</span> {selected.audience || 'Sin audiencia'} <span>·</span> Responsable: {selected.request?.responsable || selected.owner || 'Sin responsable'}</p></div>
             <span className={`planner-status status-${selected.status.replaceAll(' ', '-').toLowerCase()}`}>{selected.status}</span>
             <button className="planner-icon-button" aria-label="Cerrar detalle" onClick={() => setSelected(null)}><DismissRegular /></button>
           </aside>}
         </>
+      ) : !requestType ? (
+        <div className="planner-request-options">
+          <div className="planner-form-title"><div><h2>¿Qué deseas programar?</h2><p>Elige el tipo de elemento que quieres agregar al calendario.</p></div></div>
+          <div className="planner-option-grid">
+            <button className="planner-option" onClick={() => setRequestType('plan')}>
+              <span className="planner-option-mark">P</span>
+              <span><b>Plan</b><small>Organizar una iniciativa o conjunto de comunicaciones.</small></span>
+              <ChevronRightRegular />
+            </button>
+            <button className="planner-option" onClick={() => setRequestType('manual')}>
+              <span className="planner-option-mark manual">+</span>
+              <span><b>Solicitud manual</b><small>Programar una comunicación con los datos disponibles.</small></span>
+              <ChevronRightRegular />
+            </button>
+          </div>
+        </div>
+      ) : requestType === 'plan' ? (
+        <div className="planner-plan-placeholder">
+          <button className="planner-back" onClick={() => setRequestType(null)}><ChevronLeftRegular /> Tipos de solicitud</button>
+          <h2>Plan</h2>
+          <p>La creación de planes estará disponible cuando estén definidos sus campos.</p>
+        </div>
       ) : (
         <div className="planner-request-layout">
           <form className="planner-form" onSubmit={createRequest}>
-            <div className="planner-form-title"><div><h2>Plantilla de solicitud</h2><p>Los campos con * son obligatorios.</p></div></div>
-            <label className="planner-field planner-field-full">Nombre de la comunicación *<input name="title" value={form.title} onChange={updateForm} placeholder="Ej. Recordatorio de cierre de facturación" required /></label>
-            <div className="planner-fields-three">
-              <label className="planner-field">País *<select name="country" value={form.country} onChange={updateForm}>{COUNTRIES.map(code => <option key={code}>{code}</option>)}</select></label>
-              <label className="planner-field">Canal *<select name="channel" value={form.channel} onChange={updateForm}>{CHANNELS.map(channel => <option key={channel}>{channel}</option>)}</select></label>
-              <label className="planner-field">Prioridad *<select name="priority" value={form.priority} onChange={updateForm}>{['Alta', 'Media', 'Baja'].map(value => <option key={value}>{value}</option>)}</select></label>
+            <div className="planner-form-title planner-form-title-row">
+              <div><h2>Solicitud manual</h2><p>Completa fecha, países, área, acción, tipo de material y audiencia. Los demás campos son opcionales.</p></div>
+              <button className="planner-back" type="button" onClick={() => { setRequestType(null); setMessage(null); }}><ChevronLeftRegular /> Cambiar tipo</button>
             </div>
             <div className="planner-fields-two">
-              <label className="planner-field">Fecha de envío *<input type="date" name="date" value={form.date} onChange={updateForm} required /></label>
-              <label className="planner-field">Responsable *<select name="owner" value={form.owner} onChange={updateForm}>{OWNERS.map(owner => <option key={owner}>{owner}</option>)}</select></label>
+              <div className="planner-field">
+                <span className="planner-field-label">Países a los que aplica la solicitud *</span>
+                <details className="planner-multi-dropdown">
+                  <summary><span>{form.pais.length ? form.pais.join(', ') : 'Selecciona países'}</span><ChevronDownRegular /></summary>
+                  <div className="planner-multi-menu">
+                    {COUNTRY_OPTIONS.map(option => <label className="planner-multi-option" key={option.code}>
+                      <input type="checkbox" checked={form.pais.includes(option.label)} onChange={() => {
+                    setForm(current => ({
+                      ...current,
+                      pais: current.pais.includes(option.label)
+                        ? current.pais.filter(value => value !== option.label)
+                        : [...current.pais, option.label],
+                    }));
+                    setMessage(null);
+                      }} />
+                      <span>{option.label}</span>
+                    </label>)}
+                  </div>
+                </details>
+              </div>
+              <label className="planner-field">Fecha de envío *<input type="date" name="fecha_envio" min={todayKey} value={form.fecha_envio} onChange={updateForm} required /></label>
             </div>
-            <label className="planner-field planner-field-full">Audiencia *<input name="audience" value={form.audience} onChange={updateForm} placeholder="Ej. Sellers activos de CL" required /></label>
-            <label className="planner-field planner-field-full">Objetivo y criterio de aceptación *<textarea name="goal" value={form.goal} onChange={updateForm} rows="4" placeholder="¿Qué debe hacer el seller después de recibir la comunicación?" required /></label>
-            <label className="planner-notify"><input type="checkbox" name="notify" checked={form.notify} onChange={updateForm} /> Avisar automáticamente a Soporte y Operaciones al confirmar</label>
+            <div className="planner-fields-two">
+              <div className="planner-field">
+                <label className="planner-field-label" htmlFor="planner-area">¿En qué área trabajas? *</label>
+                <select id="planner-area" name="area" value={form.area} onChange={updateForm} required>
+                  <option value="">Selecciona un área</option>
+                  {AREA_OPTIONS.map(option => <option value={option} key={option}>{option}</option>)}
+                </select>
+                {form.area === 'Otras' && <label className="planner-other-field">Especifica el área
+                  <input name="areaOtra" value={form.areaOtra} onChange={updateForm} required />
+                </label>}
+              </div>
+              <label className="planner-field">Proyecto<input name="proyecto" value={form.proyecto} onChange={updateForm} /></label>
+            </div>
+            <div className="planner-fields-two">
+              <label className="planner-field">Acción *<select name="accion" value={form.accion} onChange={updateForm} required>
+                <option value="">Selecciona una acción</option>
+                {ACTION_OPTIONS.map(option => <option value={option} key={option}>{option}</option>)}
+              </select></label>
+              <div className="planner-field">
+                <span className="planner-field-label">Tipo de material *</span>
+                <details className="planner-multi-dropdown">
+                  <summary><span>{form.tipo_comunicado.length ? form.tipo_comunicado.join(', ') : 'Selecciona materiales'}</span><ChevronDownRegular /></summary>
+                  <div className="planner-multi-menu">
+                    {MATERIAL_OPTIONS.map(option => <label className="planner-multi-option" key={option}>
+                      <input type="checkbox" checked={form.tipo_comunicado.includes(option)} onChange={() => {
+                  setForm(current => ({
+                    ...current,
+                    tipo_comunicado: current.tipo_comunicado.includes(option)
+                      ? current.tipo_comunicado.filter(value => value !== option)
+                      : [...current.tipo_comunicado, option],
+                  }));
+                  setMessage(null);
+                      }} />
+                      <span>{option}</span>
+                    </label>)}
+                  </div>
+                </details>
+                {form.tipo_comunicado.includes('Otras') && <label className="planner-other-field">Especifica el tipo de material
+                  <input name="tipoComunicadoOtra" value={form.tipoComunicadoOtra} onChange={updateForm} required />
+                </label>}
+              </div>
+            </div>
+            <label className="planner-field">¿Cuál es la audiencia del envío? *<select name="audiencia" value={form.audiencia} onChange={updateForm} required>
+              <option value="">Selecciona una audiencia</option>
+              {AUDIENCE_OPTIONS.map(option => <option value={option} key={option}>{option}</option>)}
+            </select></label>
+            <label className="planner-field planner-field-full">URL de sellers<input type="url" name="url_sellers" value={form.url_sellers} onChange={updateForm} placeholder="https://..." /></label>
+            <label className="planner-field planner-field-full">Descripción<textarea name="descripcion" value={form.descripcion} onChange={updateForm} rows="4" /></label>
             {message && <p className={`planner-message ${message.type}`} role="status">{message.text}</p>}
+            {manualError && <p className="planner-message error" role="alert">No se pudieron cargar las solicitudes anteriores: {manualError}</p>}
             <div className="planner-form-actions">
               <button className="planner-secondary" type="button" onClick={verifyConflicts}>Verificar conflictos</button>
-              <button className="planner-primary" type="submit">Crear solicitud</button>
+              <button className="planner-primary" type="submit" disabled={manualLoading}>{manualLoading ? 'Guardando…' : 'Crear y programar'}</button>
             </div>
           </form>
           <aside className="planner-process">
-            <h2>Flujo de solicitud</h2>
-            <ol>
-              <li><span>1</span><div><b>Borrador</b><p>Solicitud creada con los campos requeridos.</p></div></li>
-              <li><span>2</span><div><b>En revisión</b><p>Validación de contenido, audiencia y fecha.</p></div></li>
-              <li><span>3</span><div><b>Aprobado</b><p>Aprobación humana antes de programar.</p></div></li>
-              <li><span>4</span><div><b>Programado</b><p>Preparado para ejecutar en el canal correspondiente.</p></div></li>
-              <li><span>5</span><div><b>Enviado</b><p>Confirmación y trazabilidad de la comunicación.</p></div></li>
-            </ol>
-            <div className="planner-rule"><b>Regla de conflicto</b><p>Misma fecha y país, con la misma audiencia o canal, requiere revisión antes de confirmar.</p></div>
+            <h2>Programación</h2>
+            <p className="planner-process-intro">La solicitud manual se guarda y aparece directamente en el calendario para la fecha seleccionada. No pasa por aprobación.</p>
+            <div className="planner-rule"><b>Conflictos</b><p>La verificación informa cuántas comunicaciones del mismo país ya están programadas para esa fecha. No bloquea el registro.</p></div>
           </aside>
         </div>
       )}

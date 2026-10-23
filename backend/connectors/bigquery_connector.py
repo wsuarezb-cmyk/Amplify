@@ -157,7 +157,17 @@ class BigQueryConnector:
             )
         logger.info("Streaming insert completado: %d filas en %s", len(rows), table_id)
 
-    def insert_rows_dml(self, table_id: str, rows: list[dict]) -> None:
+    def execute_dml(self, sql: str, params: Optional[list] = None) -> int:
+        """Ejecuta DML parametrizado y devuelve las filas afectadas."""
+        job_config = QueryJobConfig(query_parameters=params or [])
+        job = self.client.query(sql, job_config=job_config)
+        job.result()
+        affected_rows = job.num_dml_affected_rows
+        if affected_rows is None:
+            raise RuntimeError("BigQuery no informó las filas afectadas por el DML")
+        return affected_rows
+
+    def insert_rows_dml(self, table_id: str, rows: list[dict], schema=None) -> None:
         """
         Inserta filas usando un Load Job (NO streaming insert).
 
@@ -184,7 +194,9 @@ class BigQueryConnector:
         from google.cloud.bigquery import LoadJobConfig, WriteDisposition
 
         df = pd.DataFrame(rows)
-        job_config = LoadJobConfig(write_disposition=WriteDisposition.WRITE_APPEND)
+        job_config = LoadJobConfig(
+            schema=schema, write_disposition=WriteDisposition.WRITE_APPEND
+        )
 
         try:
             job = self.client.load_table_from_dataframe(df, table_id, job_config=job_config)

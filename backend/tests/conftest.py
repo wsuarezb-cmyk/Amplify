@@ -17,6 +17,9 @@ class FakeBQ:
         self.queries: list[tuple[str, list]] = []
         self.updates: list[dict] = []
         self.inserts: list[tuple[str, list[dict]]] = []
+        self.insert_schemas: list[list | None] = []
+        self.dml_queries: list[tuple[str, list]] = []
+        self.dml_result = 1
 
     def full_table_id(self, name: str) -> str:
         return f"proj.ds.{name}"
@@ -30,8 +33,13 @@ class FakeBQ:
             "table_id": table_id, "set": set_clause, "where": where_clause, "params": params,
         })
 
-    def insert_rows_dml(self, table_id, rows):
+    def insert_rows_dml(self, table_id, rows, schema=None):
         self.inserts.append((table_id, rows))
+        self.insert_schemas.append(schema)
+
+    def execute_dml(self, sql, params=None):
+        self.dml_queries.append((sql, params or []))
+        return self.dml_result
 
 
 def param_values(params: list, name: str):

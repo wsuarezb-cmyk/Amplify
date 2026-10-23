@@ -263,3 +263,27 @@ export function getCriteriaByType(interactionType) {
 export function getGlosario() {
   return api.get('/api/glosario');
 }
+
+export function getPlannerManualRequests() {
+  return api.get('/api/planner/solicitudes-manuales');
+}
+
+export function createPlannerManualRequest(body) {
+  return api.post('/api/planner/solicitudes-manuales', body);
+}
+
+export function getPlannerApprovalRequests(params = {}) {
+  return api.get('/api/planner/solicitudes', params);
+}
+
+export function getPlannerApprovalFilters() {
+  return api.get('/api/planner/filtros');
+}
+
+export function getPlannerDecisionHistory(spItemId) {
+  return api.get(`/api/planner/solicitudes/${encodeURIComponent(spItemId)}/historial`);
+}
+
+export function createPlannerDecision(spItemId, body) {
+  return api.post(`/api/planner/solicitudes/${encodeURIComponent(spItemId)}/decision`, body);
+}

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BQ_PROJECT_ID", "BQ_PROJECT")
     )
     BQ_DATASET: str  # requerido, sin default — sandbox_data_analytics_psc en .env
+    PLANNER_DATASET: str = "sandbox_data_analytics"
+    PLANNER_TIMEZONE: str = "America/Bogota"
 
     # Acepta BQ_CREDENTIALS_PATH (nombre canónico) o GOOGLE_APPLICATION_CREDENTIALS (legacy)
     BQ_CREDENTIALS_PATH: str = Field(
