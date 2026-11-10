@@ -1,20 +1,16 @@
-import TraceEmbed from '../components/trace/TraceEmbed.jsx';
+import TraceWorkspace from '../components/trace/TraceWorkspace.jsx';
 
 export default function Trace() {
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <h1 style={{
-          fontFamily: 'var(--font-display)', fontSize: 28, lineHeight: 1.2,
-          color: 'var(--color-black)', marginBottom: 5,
-        }}>
-          Trace
-        </h1>
-        <p style={{ color: 'var(--color-fg-muted)', fontSize: 13 }}>
-          Entiende qué pasó con cada comunicación por seller.
-        </p>
-      </div>
-      <TraceEmbed />
+    <section className="trace-page">
+      <header className="trace-page-heading">
+        <div>
+          <span className="trace-kicker">SELLER COMMUNICATIONS</span>
+          <h1>Trace</h1>
+        </div>
+        <p>Genera audiencias, verifica cada reducción y sigue los envíos por template.</p>
+      </header>
+      <TraceWorkspace />
     </section>
   );
 }

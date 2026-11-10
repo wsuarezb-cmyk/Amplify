@@ -287,3 +287,52 @@ export function getPlannerDecisionHistory(spItemId) {
 export function createPlannerDecision(spItemId, body) {
   return api.post(`/api/planner/solicitudes/${encodeURIComponent(spItemId)}/decision`, body);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Trace
+// ─────────────────────────────────────────────────────────────
+
+export function getTraceFilterOptions() {
+  return api.get('/api/trace/audiences/options');
+}
+
+export function previewTraceAudience(body) {
+  return api.post('/api/trace/audiences/preview', body);
+}
+
+/** Consulta única: dataset base de la audiencia; los filtros se aplican en el navegador. */
+export function loadTraceAudienceDataset(body) {
+  return api.post('/api/trace/audiences/dataset', body);
+}
+
+export async function exportTraceAudience(body) {
+  const response = await fetch('/api/trace/audiences/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try { detail = (await response.json()).detail ?? detail; } catch { /* no-JSON */ }
+    throw new Error(detail);
+  }
+  const filename = (response.headers.get('Content-Disposition') ?? '')
+    .match(/filename="([^"]+)"/)?.[1] ?? 'trace_audience.csv';
+  return { blob: await response.blob(), filename };
+}
+
+export function getTraceSendSummary(params) {
+  return api.get('/api/trace/sends/summary', params);
+}
+
+export function getTraceSendDetail(params) {
+  return api.get('/api/trace/sends/detail', params);
+}
+
+export function getTraceAudienceHistory(params) {
+  return api.get('/api/trace/audiences/history', params);
+}
+
+export function getTraceDailyVolume() {
+  return api.get('/api/trace/contacts/daily-volume');
+}

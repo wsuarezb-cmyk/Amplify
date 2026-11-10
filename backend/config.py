@@ -64,6 +64,13 @@ class Settings(BaseSettings):
     # Diagnósticos por usuario y mes calendario (ADMIN sin límite; fallidos no cuentan).
     DIAGNOSTICO_CUOTA_MENSUAL: int = 5
 
+    # ── Trace ────────────────────────────────────────────────────────────
+    # Se configuran solo después de validar dataset, ownership y permisos.
+    TRACE_AUDIENCE_HISTORY_TABLE: str = ""
+    TRACE_CONTACTS_SNAPSHOT_TABLE: str = ""
+    TRACE_NOT_FOUND_ALERT_THRESHOLD: float = Field(default=0.20, ge=0.0, le=1.0)
+    TRACE_DAILY_DROP_THRESHOLD: float = Field(default=0.20, ge=0.0, le=1.0)
+
     model_config = SettingsConfigDict(
         env_file="backend/.env",
         extra="ignore",

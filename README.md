@@ -9,7 +9,7 @@ publicación, y Trace para el seguimiento en Looker Studio.
 | Vista | Qué hace | Estado |
 |---|---|---|
 | **Planner** | Calendario de solicitudes manuales, aprobación/reprogramación de solicitudes externas y creación manual. | Aprobación externa disponible; integración de aprobadas al calendario pendiente. “Plan” permanece como placeholder. |
-| **Trace** | Reporte de seguimiento en Looker Studio embebido. | Disponible; dashboard propio no implementado. |
+| **Trace** | Generación y conciliación de audiencias, seguimiento de envíos e historial; Looker Studio como vista secundaria. | Experiencia nativa disponible. |
 | **Reportería** | Dashboard con filtros cruzados, vistas ejecutiva/operativa, drilldown y descarga CSV. Incluye Diagnóstico IA cuando Kairos está configurado. | Disponible. |
 | **Calibración** | Evaluación humana en dos pasos: voto ciego y confirmación frente a SAACA. | Disponible para rol AUDITOR o superior. |
 | **Glosario** | Catálogo de criterios vigente e historial, con descripción de cómo evalúa SAACA. | Disponible para todos los roles. |
@@ -61,8 +61,12 @@ Todos los endpoints requieren usuario autenticado. No hay restricción por rol p
 
 ### Trace
 
-- Embebe un reporte de **Looker Studio** en un `iframe` (`frontend/src/components/trace/TraceEmbed.jsx`).
-- Un dashboard propio es una evolución futura, no una funcionalidad actual.
+- Genera audiencias desde la base maestra y permite revisar filtros, exclusiones y conteos antes
+  de descargar el CSV asociado a un template.
+- Consulta resultados de envíos por template y conserva un historial auditable de las audiencias
+  descargadas cuando se configura su tabla de destino.
+- **Looker Studio permanece como vista secundaria** hasta la validación explícita de negocio.
+- Configuración y limitaciones operativas: [`docs/trace-setup.md`](docs/trace-setup.md).
 
 ### Módulos de calidad SAACA
 
@@ -85,7 +89,7 @@ Todos los endpoints requieren usuario autenticado. No hay restricción por rol p
 - Backend: **FastAPI**, Python 3.12.
 - Datos: **BigQuery**.
 - Frontend: **React 18 + Vite 5**.
-- Visualización: **Looker Studio** embebido en Trace.
+- Gráficos: **Recharts** en Trace; Looker Studio se mantiene como vista secundaria.
 - Despliegue: **Cloud Run detrás de IAP**.
 
 ---
@@ -285,7 +289,7 @@ Las pruebas backend usan `FakeBQ` y no consultan ni escriben BigQuery. Las prueb
 - [ ] **Planner:** agregar una vista dedicada de Auditoría; hoy el historial se muestra dentro del
   ticket de aprobación.
 - [ ] **Planner:** definir roles específicos para aprobar solicitudes.
-- [ ] **Trace:** evaluar si se reemplaza Looker Studio por un dashboard propio.
+- [ ] **Trace:** validar el flujo nativo de audiencias, envíos e historial y definir el alcance futuro de Looker Studio.
 
 ---
 
@@ -346,4 +350,4 @@ npm ci
 Las solicitudes manuales de Amplify no aparecen en esta cola.
 
 **8. Trace no carga**
-→ Confirmar que el usuario tiene permiso para abrir el reporte de Looker Studio embebido.
+→ Revisar la configuración de Trace en [`docs/trace-setup.md`](docs/trace-setup.md), el acceso a BigQuery y el estado del backend.

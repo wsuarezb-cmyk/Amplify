@@ -31,7 +31,7 @@ from backend.connectors.bigquery_connector import BigQueryConnector
 from backend.dependencies import require_role
 from backend.models.schemas import HealthResponse
 from backend.routers import auth as auth_router
-from backend.routers import criteria, glosario, interaction, pitch_dashboard, pitch_calibracion, pitch_diagnostico, planner
+from backend.routers import criteria, glosario, interaction, pitch_dashboard, pitch_calibracion, pitch_diagnostico, planner, trace
 
 # ─────────────────────────────────────────────────────────────
 # Configuración inicial
@@ -109,6 +109,10 @@ app.include_router(
     dependencies=[Depends(require_role("VIEWER"))],
 )
 app.include_router(planner.router, prefix="/api/planner", tags=["planner"])
+app.include_router(
+    trace.router, prefix="/api/trace", tags=["trace"],
+    dependencies=[Depends(require_role("VIEWER"))],
+)
 
 # ─────────────────────────────────────────────────────────────
 # Endpoints
