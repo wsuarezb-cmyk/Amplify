@@ -37,6 +37,7 @@ frontend/.vite/
 node_modules/
 dist/
 *.local
+instrucciones/
 
 # IDEs y OS
 .vscode/
