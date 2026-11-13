@@ -329,6 +329,23 @@ export function getTraceSendDetail(params) {
   return api.get('/api/trace/sends/detail', params);
 }
 
+export async function exportTraceSendDetail(params) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) value.forEach(item => query.append(key, item));
+    else if (value !== null && value !== undefined && value !== '') query.append(key, value);
+  }
+  const response = await fetch(`/api/trace/sends/export?${query}`);
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try { detail = (await response.json()).detail ?? detail; } catch { /* no-JSON */ }
+    throw new Error(detail);
+  }
+  const filename = (response.headers.get('Content-Disposition') ?? '')
+    .match(/filename="([^"]+)"/)?.[1] ?? 'seguimiento_envios.csv';
+  return { blob: await response.blob(), filename };
+}
+
 export function getTraceAudienceHistory(params) {
   return api.get('/api/trace/audiences/history', params);
 }

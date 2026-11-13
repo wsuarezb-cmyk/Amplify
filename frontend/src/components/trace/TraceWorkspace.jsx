@@ -1,11 +1,17 @@
 import { useState } from 'react';
+import {
+  ArrowDownloadRegular, ArrowTrendingRegular, CheckmarkCircleRegular, CursorClickRegular,
+  DismissCircleRegular, EyeRegular, PersonRegular,
+} from '@fluentui/react-icons';
 import TraceEmbed from './TraceEmbed.jsx';
 import AudienceGenerator from './AudienceGenerator.jsx';
+import TraceSendReporting from './TraceSendReporting.jsx';
 import { Metric, number } from './traceCommon.jsx';
 import {
   getTraceAudienceHistory,
   getTraceSendDetail,
   getTraceSendSummary,
+  exportTraceSendDetail,
 } from '../../services/api.js';
 import './TraceWorkspace.css';
 
@@ -16,6 +22,9 @@ const MODULES = [
   ['looker', 'Looker Studio'],
 ];
 const PAGE_SIZE = 50;
+const SEND_COUNTRIES = [
+  ['CL_Sellers', 'Chile'], ['PE_Sellers', 'Perú'], ['CO_Sellers', 'Colombia'],
+];
 
 function dateLabel(value) {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(value)) {
@@ -23,6 +32,12 @@ function dateLabel(value) {
     return `${day}/${month}/${year}`;
   }
   return value ? new Date(value).toLocaleDateString('es-CL') : 'Sin dato';
+}
+
+function rateLabel(value, denominator) {
+  return denominator
+    ? `${(value * 100 / denominator).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+    : '—';
 }
 
 function parseHistoryValue(value, fallback) {
@@ -105,8 +120,15 @@ function TraceWorkspace() {
   const [sendTemplate, setSendTemplate] = useState('');
   const [sendSummary, setSendSummary] = useState(null);
   const [sendDetail, setSendDetail] = useState(null);
+  const [sendAppliedFilters, setSendAppliedFilters] = useState(null);
+  const [sendExporting, setSendExporting] = useState(false);
   const [sendSeller, setSendSeller] = useState('');
   const [sendStatus, setSendStatus] = useState('');
+  const [sendCountries, setSendCountries] = useState([]);
+  const [sendDateFrom, setSendDateFrom] = useState('');
+  const [sendDateTo, setSendDateTo] = useState('');
+  const [sendJobId, setSendJobId] = useState('');
+  const [sendJobs, setSendJobs] = useState([]);
   const [sendPage, setSendPage] = useState(1);
   const [historyTemplate, setHistoryTemplate] = useState('');
   const [historyUser, setHistoryUser] = useState('');
@@ -114,24 +136,61 @@ function TraceWorkspace() {
   const [historyTo, setHistoryTo] = useState('');
   const [history, setHistory] = useState(null);
 
-  const loadSends = async (page = 1) => {
+  const loadSends = async (page = 1, selectedJobId = sendJobId) => {
     if (!sendTemplate.trim()) return;
-    setLoading(true);
-    setError('');
     setSendSummary(null);
     setSendDetail(null);
+    setSendAppliedFilters(null);
+    setError('');
+    if (Boolean(sendDateFrom) !== Boolean(sendDateTo)) {
+      setError('Selecciona ambas fechas para definir el rango. Para consultar un solo día, usa la misma fecha en Desde y Hasta.');
+      return;
+    }
+    if (sendDateFrom && sendDateFrom > sendDateTo) {
+      setError('La fecha Desde no puede ser posterior a la fecha Hasta.');
+      return;
+    }
+    setLoading(true);
     try {
+      const filters = {
+        template: sendTemplate.trim(), countries: sendCountries,
+        date_from: sendDateFrom, date_to: sendDateTo,
+        seller_id: sendSeller.trim(), status: sendStatus, job_id: selectedJobId,
+      };
       const [summary, detail] = await Promise.all([
-        getTraceSendSummary({ template: sendTemplate.trim(), seller_id: sendSeller.trim(), status: sendStatus }),
-        getTraceSendDetail({ template: sendTemplate.trim(), seller_id: sendSeller.trim(), status: sendStatus, page, page_size: PAGE_SIZE }),
+        getTraceSendSummary(filters),
+        getTraceSendDetail({ ...filters, page, page_size: PAGE_SIZE }),
       ]);
+      setSendJobs(summary.jobs ?? []);
       setSendSummary(summary);
       setSendDetail(detail);
+      setSendAppliedFilters(filters);
       setSendPage(page);
     } catch (reason) {
       setError(reason.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadSendDetail = async () => {
+    if (!sendAppliedFilters) return;
+    setSendExporting(true);
+    setError('');
+    try {
+      const file = await exportTraceSendDetail(sendAppliedFilters);
+      const url = URL.createObjectURL(file.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.filename;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setSendExporting(false);
     }
   };
 
@@ -169,12 +228,27 @@ function TraceWorkspace() {
         <section className="trace-section"><div className="trace-section-heading"><div><span className="trace-step">01</span><h2>Busca un envío</h2></div></div>
           <div className="trace-search-controls trace-send-search">
             <label className="trace-field"><span>Template exacto</span><input value={sendTemplate} onChange={event => setSendTemplate(event.target.value)} /></label>
+            <div className="trace-field"><span>País</span>
+              <details className="trace-country-picker">
+                <summary>{sendCountries.length ? `${sendCountries.length} seleccionados` : 'Todos'}</summary>
+                <div className="trace-country-options">
+                  {SEND_COUNTRIES.map(([value, label]) => <label key={value}>
+                    <input type="checkbox" checked={sendCountries.includes(value)} onChange={() => setSendCountries(current => current.includes(value) ? current.filter(country => country !== value) : [...current, value])} />
+                    {label}
+                  </label>)}
+                </div>
+              </details>
+            </div>
+            <label className="trace-field"><span>Fecha desde</span><input type="date" value={sendDateFrom} onChange={event => setSendDateFrom(event.target.value)} /></label>
+            <label className="trace-field"><span>Fecha hasta</span><input type="date" value={sendDateTo} onChange={event => setSendDateTo(event.target.value)} /></label>
             <label className="trace-field"><span>Seller ID (opcional)</span><input value={sendSeller} onChange={event => setSendSeller(event.target.value)} /></label>
             <label className="trace-field"><span>Estado</span><select value={sendStatus} onChange={event => setSendStatus(event.target.value)}><option value="">Todos</option><option value="ENVIADO">Enviado</option><option value="NO_ENVIADO">No enviado</option></select></label>
-            <button className="trace-button trace-button--primary" type="button" onClick={() => loadSends(1)} disabled={loading || !sendTemplate.trim()}>{loading ? 'Buscando…' : 'Buscar'}</button>
+            <button className="trace-button trace-button--primary" type="button" onClick={() => { setSendJobId(''); loadSends(1, ''); }} disabled={loading || !sendTemplate.trim()}>{loading ? 'Buscando…' : 'Buscar'}</button>
           </div>
         </section>
-        {sendSummary && <SendResults summary={sendSummary} detail={sendDetail} page={sendPage} loading={loading} onPage={loadSends} />}
+        {sendSummary && <SendResults summary={sendSummary} detail={sendDetail} jobs={sendJobs} selectedJobId={sendJobId}
+          page={sendPage} loading={loading} exporting={sendExporting} onExport={downloadSendDetail}
+          onJobChange={jobId => { setSendJobId(jobId); loadSends(1, jobId); }} onPage={loadSends} />}
       </div>}
 
       {module === 'history' && <div className="trace-content">
@@ -195,20 +269,45 @@ function TraceWorkspace() {
   );
 }
 
-function SendResults({ summary, detail, page, loading, onPage }) {
+function SendResults({ summary, detail, jobs, selectedJobId, page, loading, exporting, onExport, onPage, onJobChange }) {
   const values = summary.summary ?? {};
-  const cards = [['Sellers procesados', values.sellers_processed], ['Sellers enviados', values.sellers_sent], ['Sellers no enviados', values.sellers_not_sent], ['Contactos', values.contacts_processed], ['Aperturas', values.opens], ['Clics', values.clicks]];
+  const processed = values.sellers_processed ?? 0;
+  const sent = values.sellers_sent ?? 0;
+  const hasResults = values.contacts_processed > 0;
+  const cards = [
+    [PersonRegular, 'Sellers procesados', processed, processed ? '100% del universo consultado' : '—'],
+    [CheckmarkCircleRegular, 'Sellers enviados', sent, rateLabel(sent, processed)],
+    [DismissCircleRegular, 'Sellers no enviados', values.sellers_not_sent, rateLabel(values.sellers_not_sent, processed)],
+    [EyeRegular, 'Sellers con apertura', values.sellers_with_open, rateLabel(values.sellers_with_open, sent)],
+    [CursorClickRegular, 'Sellers con clic', values.sellers_with_click, rateLabel(values.sellers_with_click, sent)],
+    [ArrowTrendingRegular, 'Contactos procesados', values.contacts_processed,
+      processed ? `${(values.contacts_processed / processed).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} contactos/seller` : '—'],
+  ];
   return <section className="trace-section">
     <div className="trace-section-heading"><div><span className="trace-step">02</span><h2>{summary.template}</h2></div><span className="trace-muted">{dateLabel(values.first_date)} – {dateLabel(values.last_date)}</span></div>
-    <div className="trace-metrics">{cards.map(([label, value]) => <Metric key={label} label={label} value={value} />)}</div>
-    {summary.not_sent_causes?.length > 0 && <p className="trace-cause-line">No enviados: {summary.not_sent_causes.map(row => `${row.cause} (${number(row.contacts)})`).join(' · ')}</p>}
-    <div className="trace-table-wrap"><table className="trace-table"><thead><tr><th>Seller ID</th><th>Email</th><th>Estado</th><th>Causa</th><th>Fecha</th><th>Apertura</th><th>Clic</th></tr></thead>
-      <tbody>{detail?.items?.map((row, index) => <tr key={`${row.id_seller}-${row.email}-${index}`}><td>{row.id_seller ?? '—'}</td><td>{row.email ?? '—'}</td><td><span className="trace-state">{row.normalized_status}</span></td><td>{row.causa ?? 'Sin causa'}</td><td>{dateLabel(row.fecha)}</td><td>{row.open === 'Open' ? 'Abierto' : 'No abierto'}</td><td>{row.clic === 'Clic' ? 'Clic' : 'Sin clic'}</td></tr>)}</tbody>
+    {jobs.length > 0 && <label className="trace-field trace-job-select"><span>Job de envío</span><select value={selectedJobId} onChange={event => onJobChange(event.target.value)}>
+      <option value="">Todos los jobs</option>{jobs.map(job => <option value={job.job_id} key={job.job_id}>{job.job_id} · {dateLabel(job.job_date)}</option>)}
+    </select></label>}
+    {!hasResults ? <p className="trace-empty">No encontramos registros para el template y los filtros seleccionados.</p> : <>
+    <div className="trace-metrics trace-metrics--audience trace-metrics--sends">{cards.map(([icon, label, value, detail]) => <Metric key={label} icon={icon} label={label} value={value} detail={detail} />)}</div>
+    {(!values.reconciliation_ok || values.contacts_without_seller > 0 || values.unclassified_contacts > 0) && <div className="trace-send-data-quality" role="alert">
+      {!values.reconciliation_ok ? 'Los conteos a nivel seller no concilian. Revisa registros sin Seller ID o estados de envío no reconocidos.' : `La consulta contiene ${number(values.contacts_without_seller)} contactos sin Seller ID y ${number(values.unclassified_contacts)} con estado no reconocido; no participan en la clasificación seller.`}
+    </div>}
+    <TraceSendReporting report={summary} />
+    <div className="trace-section-heading trace-send-detail-heading"><div><span className="trace-step">04</span><h2>Detalle seller-contacto</h2></div>
+      <button className="trace-button trace-button--quiet" type="button" onClick={onExport} disabled={loading || exporting} aria-label="Descargar el detalle completo en CSV">
+        <ArrowDownloadRegular aria-hidden="true" />{exporting ? 'Preparando…' : 'Descargar CSV'}
+      </button>
+    </div>
+    <p className="trace-detail-grain">La reportería resume sellers únicos. La tabla muestra el detalle por seller-contacto.</p>
+    <div className="trace-table-wrap"><table className="trace-table"><thead><tr><th>Job ID</th><th>Seller ID</th><th>Email</th><th>Estado</th><th>Causa</th><th>Fecha</th><th>Apertura</th><th>Clic</th></tr></thead>
+      <tbody>{detail?.items?.map((row, index) => <tr key={`${row.job_id}-${row.id_seller}-${row.email}-${index}`}><td>{row.job_id ?? '—'}</td><td>{row.id_seller ?? '—'}</td><td>{row.email ?? '—'}</td><td><span className="trace-state">{row.normalized_status}</span></td><td>{row.causa ?? 'Sin causa'}</td><td>{dateLabel(row.fecha)}</td><td>{row.open === 'Open' ? 'Abierto' : 'No abierto'}</td><td>{row.clic === 'Clic' ? 'Clic' : 'Sin clic'}</td></tr>)}</tbody>
     </table>{!detail?.items?.length && <p className="trace-empty">No hay resultados para este template y filtros.</p>}</div>
     {detail?.total > PAGE_SIZE && <div className="trace-pagination"><span>{number(detail.total)} registros · página {page}</span><div>
       <button className="trace-button trace-button--quiet" onClick={() => onPage(page - 1)} disabled={loading || page <= 1}>Anterior</button>
       <button className="trace-button trace-button--quiet" onClick={() => onPage(page + 1)} disabled={loading || page * PAGE_SIZE >= detail.total}>Siguiente</button>
     </div></div>}
+    </>}
   </section>;
 }
 

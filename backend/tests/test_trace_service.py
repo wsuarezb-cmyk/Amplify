@@ -2,7 +2,7 @@ import csv
 import io
 from datetime import date, datetime
 
-from backend.services.trace_service import TraceService, parse_trace_input
+from backend.services.trace_service import TraceService, _aggregate_seller_rollups, parse_trace_input
 
 
 class TraceFakeBQ:
@@ -148,7 +148,14 @@ def test_sellers_without_contact_channels_remain_eligible():
 
 def test_send_summary_and_detail_share_parameterized_filters():
     bq = TraceFakeBQ()
-    bq.responses = [[{"sellers_processed": 1}], [{"contacts": 0}], [{"total": 1}], [{"id_seller": "S1"}]]
+    bq.responses = [
+                [{"has_sent": True, "has_open": False, "has_click": False}],
+                [{"contacts_processed": 1, "contacts_without_seller": 0, "unclassified_contacts": 0,
+                    "contacts_sent": 1, "contacts_not_sent": 0, "first_date": date(2026, 11, 1),
+                    "last_date": date(2026, 11, 1)}],
+                [{"job_id": "J1", "job_date": date(2026, 11, 1)}], [{"cause": "Sin causa", "sellers": 0, "contacts": 0}],
+                [], [{"total": 1}], [{"id_seller": "S1"}],
+    ]
     service = TraceService(bq)
     template = "t' OR 1=1"
 
@@ -162,8 +169,102 @@ def test_send_summary_and_detail_share_parameterized_filters():
         assert [parameter.name for parameter in params[:3]] == ["template", "seller_id", "status"]
         assert [parameter.value for parameter in params[:3]] == [template, "S1", "Enviado"]
     assert detail["total"] == 1
-    assert bq.queries[3][1][-2].value == 25
-    assert bq.queries[3][1][-1].value == 25
+    assert bq.queries[6][1][-2].value == 25
+    assert bq.queries[6][1][-1].value == 25
+
+
+def test_send_filters_parameterize_country_dates_and_job():
+    where, params = TraceService._send_filters(
+        "summer-campaign", None, None, ["CL_Sellers", "PE_Sellers"],
+        "2026-11-01", "2026-11-10", "job-42",
+    )
+
+    assert "pais IN UNNEST(@countries)" in where
+    assert "DATE(fecha) BETWEEN @date_from AND @date_to" in where
+    assert "CAST(id_jobenvio AS STRING) = @job_id" in where
+    assert "summer-campaign" not in where
+    assert [parameter.name for parameter in params] == [
+        "template", "countries", "date_from", "date_to", "job_id",
+    ]
+    assert params[1].values == ["CL_Sellers", "PE_Sellers"]
+    assert params[2].value == date(2026, 11, 1)
+    assert params[3].value == date(2026, 11, 10)
+    assert params[4].value == "job-42"
+
+
+def test_send_filters_require_complete_ordered_date_range():
+    for date_from, date_to, message in [
+        ("2026-11-01", None, "Selecciona ambas fechas"),
+        (None, "2026-11-10", "Selecciona ambas fechas"),
+        ("2026-11-11", "2026-11-10", "no puede ser posterior"),
+    ]:
+        try:
+            TraceService._send_filters("template", None, None, date_from=date_from, date_to=date_to)
+        except ValueError as error:
+            assert message in str(error)
+        else:
+            raise AssertionError("El rango inválido debía rechazarse")
+
+
+def test_sends_export_includes_all_rows_and_reuses_all_filters():
+    bq = TraceFakeBQ()
+    bq.responses = [[
+        {"job_id": "J1", "id_seller": "S1", "email": "=formula@example.com",
+         "template": "campaign", "estado_envio": "Not Sent",
+         "normalized_status": "NO_ENVIADO", "causa": "Sin contacto",
+         "fecha": date(2026, 11, 1), "open": "Not Open", "clic": "Not Click"},
+    ]]
+
+    content, filename = TraceService(bq).sends_export(
+        "campaign", "S1", "NO_ENVIADO", ["CL_Sellers"],
+        "2026-11-01", "2026-11-10", "J1",
+    )
+
+    rows = list(csv.reader(io.StringIO(content)))
+    assert rows[0] == [
+        "Job ID", "Seller ID", "Email", "Template", "Estado original",
+        "Estado", "Causa", "Fecha", "Apertura", "Clic",
+    ]
+    assert rows[1][0:2] == ["J1", "S1"]
+    assert rows[1][2] == "'=formula@example.com"
+    assert rows[1][5] == "NO_ENVIADO"
+    assert filename.startswith("seguimiento_envios_") and filename.endswith(".csv")
+    sql, params, timeout = bq.queries[0]
+    assert "ORDER BY fecha DESC" in sql and "LIMIT" not in sql
+    assert [parameter.name for parameter in params] == [
+        "template", "seller_id", "status", "countries", "date_from", "date_to", "job_id",
+    ]
+    assert timeout == 120
+
+
+def test_seller_rollups_are_exclusive_and_interactions_require_sent_status():
+    result = _aggregate_seller_rollups([
+        {"has_sent": True, "has_open": False, "has_click": False},
+        {"has_sent": False, "has_open": True, "has_click": True},
+        {"has_sent": True, "has_open": False, "has_click": False},
+        {"has_sent": False, "has_open": False, "has_click": False},
+        {"has_sent": True, "has_open": True, "has_click": True},
+    ])
+
+    assert result["sellers_processed"] == 5
+    assert result["sellers_sent"] == 3
+    assert result["sellers_not_sent"] == 2
+    assert result["sellers_with_open"] == 1
+    assert result["sellers_with_click"] == 1
+    assert round(result["open_rate"], 2) == 33.33
+    assert round(result["click_rate"], 2) == 33.33
+    assert result["ctor"] == 100
+    assert result["reconciliation_ok"] is True
+
+
+def test_seller_rollups_return_empty_rates_when_denominators_are_zero():
+    result = _aggregate_seller_rollups([])
+
+    assert result["sellers_processed"] == result["sellers_sent"] == result["sellers_not_sent"] == 0
+    assert result["open_rate"] is None
+    assert result["click_rate"] is None
+    assert result["ctor"] is None
+    assert result["reconciliation_ok"] is True
 
 def test_dataset_returns_explicit_columns_once_and_reconciles_inputs():
     bq = TraceFakeBQ([contact("S1", "one@example.com", None, contacto="Comercial", Pais="Chile")])

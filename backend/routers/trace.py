@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 
@@ -88,10 +90,14 @@ def sends_summary(
     template: str = Query(min_length=1, max_length=256),
     seller_id: str | None = None,
     status: str | None = None,
+    countries: list[str] | None = Query(default=None),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    job_id: str | None = None,
     service: TraceService = Depends(get_trace_service),
 ):
     try:
-        return service.sends_summary(template, seller_id, status)
+        return service.sends_summary(template, seller_id, status, countries, date_from, date_to, job_id)
     except Exception as exc:
         raise _http_error(exc) from exc
 
@@ -101,14 +107,44 @@ def sends_detail(
     template: str = Query(min_length=1, max_length=256),
     seller_id: str | None = None,
     status: str | None = None,
+    countries: list[str] | None = Query(default=None),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    job_id: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     service: TraceService = Depends(get_trace_service),
 ):
     try:
-        return service.sends_detail(template, seller_id, status, page, page_size)
+        return service.sends_detail(
+            template, seller_id, status, page, page_size, countries, date_from, date_to, job_id,
+        )
     except Exception as exc:
         raise _http_error(exc) from exc
+
+
+@router.get("/sends/export")
+def sends_export(
+    template: str = Query(min_length=1, max_length=256),
+    seller_id: str | None = None,
+    status: str | None = None,
+    countries: list[str] | None = Query(default=None),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    job_id: str | None = None,
+    service: TraceService = Depends(get_trace_service),
+):
+    try:
+        csv_content, filename = service.sends_export(
+            template, seller_id, status, countries, date_from, date_to, job_id,
+        )
+    except Exception as exc:
+        raise _http_error(exc) from exc
+    return Response(
+        content=csv_content.encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/audiences/history")

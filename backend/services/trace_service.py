@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from google.cloud.bigquery import ArrayQueryParameter, ScalarQueryParameter
 
@@ -16,6 +16,7 @@ CONTACTS_TABLE = "bi-fcom-drmb-sell-in-sbx.sandbox_pzamora.base_contactos_v2"
 SENDS_TABLE = "bi-fcom-drmb-sell-in-sbx.crm_sellers.detalle_contactos_historico"
 BATCH_SIZE = 1000
 NULL_OPTION = "__NULL__"
+SEND_COUNTRIES = {"CL_Sellers", "PE_Sellers", "CO_Sellers"}
 
 # Columnas mínimas que la pantalla necesita para filtrar, graficar y conciliar en memoria.
 DATASET_COLUMNS = [
@@ -100,6 +101,25 @@ def _row_category(key: str, row: dict) -> str:
 
 def _option(value: str, label: str | None = None) -> dict:
     return {"value": value, "label": label or value}
+
+
+def _aggregate_seller_rollups(rows: list[dict]) -> dict:
+    processed = len(rows)
+    sent = sum(bool(row.get("has_sent")) for row in rows)
+    opened = sum(bool(row.get("has_sent")) and bool(row.get("has_open")) for row in rows)
+    clicked = sum(bool(row.get("has_sent")) and bool(row.get("has_click")) for row in rows)
+    not_sent = processed - sent
+    return {
+        "sellers_processed": processed,
+        "sellers_sent": sent,
+        "sellers_not_sent": not_sent,
+        "sellers_with_open": opened,
+        "sellers_with_click": clicked,
+        "open_rate": opened / sent * 100 if sent else None,
+        "click_rate": clicked / sent * 100 if sent else None,
+        "ctor": clicked / opened * 100 if opened else None,
+        "reconciliation_ok": processed == sent + not_sent,
+    }
 
 
 class TraceService:
@@ -423,7 +443,11 @@ class TraceService:
         return buffer.getvalue(), filename, preview
 
     @staticmethod
-    def _send_filters(template: str, seller_id: str | None, status: str | None) -> tuple[str, list]:
+    def _send_filters(template: str, seller_id: str | None, status: str | None,
+                      countries: list[str] | None = None,
+                      date_from: date | str | None = None,
+                      date_to: date | str | None = None,
+                      job_id: str | None = None) -> tuple[str, list]:
         clauses = ["template = @template"]
         params = [ScalarQueryParameter("template", "STRING", template)]
         if seller_id:
@@ -435,42 +459,140 @@ class TraceService:
                 raise ValueError("Estado de envío no reconocido.")
             clauses.append("estado_envio = @status")
             params.append(ScalarQueryParameter("status", "STRING", status_map[status]))
+        selected_countries = countries or []
+        unknown_countries = set(selected_countries) - SEND_COUNTRIES
+        if unknown_countries:
+            raise ValueError("País de envío no reconocido.")
+        if selected_countries:
+            clauses.append("pais IN UNNEST(@countries)")
+            params.append(ArrayQueryParameter("countries", "STRING", selected_countries))
+        if bool(date_from) != bool(date_to):
+            raise ValueError(
+                "Selecciona ambas fechas para definir el rango. Para consultar un solo día, "
+                "usa la misma fecha en Desde y Hasta."
+            )
+        if date_from and date_to:
+            start = date.fromisoformat(date_from) if isinstance(date_from, str) else date_from
+            end = date.fromisoformat(date_to) if isinstance(date_to, str) else date_to
+            if start > end:
+                raise ValueError("La fecha Desde no puede ser posterior a la fecha Hasta.")
+            clauses.append("DATE(fecha) BETWEEN @date_from AND @date_to")
+            params.extend([
+                ScalarQueryParameter("date_from", "DATE", start),
+                ScalarQueryParameter("date_to", "DATE", end),
+            ])
+        if job_id:
+            clauses.append("CAST(id_jobenvio AS STRING) = @job_id")
+            params.append(ScalarQueryParameter("job_id", "STRING", job_id))
         return " AND ".join(clauses), params
 
     def sends_summary(self, template: str, seller_id: str | None = None,
-                      status: str | None = None) -> dict:
-        where, params = self._send_filters(template, seller_id, status)
-        rows = self.bq.query(
+                      status: str | None = None, countries: list[str] | None = None,
+                      date_from: date | str | None = None,
+                      date_to: date | str | None = None,
+                      job_id: str | None = None) -> dict:
+        where, params = self._send_filters(
+            template, seller_id, status, countries, date_from, date_to, job_id,
+        )
+        seller_rows = self.bq.query(
             f"""SELECT
-              COUNT(*) AS contacts_processed,
-              COUNT(DISTINCT id_seller) AS sellers_processed,
+              COUNTIF(estado_envio = 'Enviado') > 0 AS has_sent,
+              COUNTIF(open = 'Open') > 0 AS has_open,
+              COUNTIF(clic = 'Clic') > 0 AS has_click
+            FROM `{SENDS_TABLE}` WHERE {where} AND id_seller IS NOT NULL
+            GROUP BY id_seller""",
+            params=params,
+            timeout_s=60,
+        )
+        result = _aggregate_seller_rollups(seller_rows)
+        quality_rows = self.bq.query(
+            f"""SELECT COUNT(*) AS contacts_processed,
+              COUNTIF(id_seller IS NULL) AS contacts_without_seller,
+              COUNTIF(estado_envio IS NULL OR estado_envio NOT IN ('Enviado', 'Not Sent')) AS unclassified_contacts,
               COUNTIF(estado_envio = 'Enviado') AS contacts_sent,
-              COUNT(DISTINCT IF(estado_envio = 'Enviado', id_seller, NULL)) AS sellers_sent,
               COUNTIF(estado_envio = 'Not Sent') AS contacts_not_sent,
-              COUNT(DISTINCT IF(estado_envio = 'Not Sent', id_seller, NULL)) AS sellers_not_sent,
-              COUNTIF(estado_envio IS NULL OR estado_envio NOT IN ('Enviado', 'Not Sent')) AS unclassified,
-              COUNTIF(open = 'Open') AS opens,
-              COUNTIF(clic = 'Clic') AS clicks,
-              MIN(fecha) AS first_date,
-              MAX(fecha) AS last_date
+              MIN(fecha) AS first_date, MAX(fecha) AS last_date
             FROM `{SENDS_TABLE}` WHERE {where}""",
             params=params,
             timeout_s=60,
         )
-        result = rows[0] if rows else {}
+        quality = quality_rows[0] if quality_rows else {}
+        result.update(quality)
+        if not result["reconciliation_ok"] or result["contacts_without_seller"] or result["unclassified_contacts"]:
+            logger.warning(
+                "Trace send data quality: processed=%d sent=%d not_sent=%d null_seller_contacts=%d unknown_status_contacts=%d",
+                result["sellers_processed"], result["sellers_sent"], result["sellers_not_sent"],
+                result["contacts_without_seller"], result["unclassified_contacts"],
+            )
+        jobs_where, jobs_params = self._send_filters(
+            template, seller_id, status, countries, date_from, date_to,
+        )
+        jobs = self.bq.query(
+            f"""SELECT CAST(id_jobenvio AS STRING) AS job_id, MIN(DATE(fecha)) AS job_date
+            FROM `{SENDS_TABLE}` WHERE {jobs_where} AND id_jobenvio IS NOT NULL
+            GROUP BY job_id ORDER BY job_date DESC, job_id""",
+            params=jobs_params,
+            timeout_s=60,
+        )
         causes = self.bq.query(
-            f"""SELECT COALESCE(causa, 'Sin causa') AS cause, COUNT(*) AS contacts
+                        f"""SELECT COALESCE(causa, 'Sin causa') AS cause,
+                            COUNT(DISTINCT id_seller) AS sellers, COUNT(*) AS contacts
             FROM `{SENDS_TABLE}`
             WHERE {where} AND estado_envio = 'Not Sent'
-            GROUP BY cause ORDER BY contacts DESC""",
+                        GROUP BY cause ORDER BY sellers DESC, contacts DESC""",
             params=params,
             timeout_s=60,
         )
-        return {"template": template, "summary": result, "not_sent_causes": causes}
+        country_rows = self.bq.query(
+                        f"""WITH seller_country AS (
+                            SELECT pais, id_seller,
+                                COUNTIF(estado_envio = 'Enviado') > 0 AS has_sent,
+                                COUNTIF(open = 'Open') > 0 AS has_open,
+                                COUNTIF(clic = 'Clic') > 0 AS has_click
+                            FROM `{SENDS_TABLE}` WHERE {where} AND id_seller IS NOT NULL AND pais IS NOT NULL
+                            GROUP BY pais, id_seller
+                        )
+                        SELECT pais AS country, COUNT(*) AS sellers_processed,
+                            COUNTIF(has_sent) AS sellers_sent, COUNTIF(NOT has_sent) AS sellers_not_sent,
+                            COUNTIF(has_sent AND has_open) AS sellers_with_open,
+                            COUNTIF(has_sent AND has_click) AS sellers_with_click
+                        FROM seller_country GROUP BY country ORDER BY country""",
+                        params=params,
+                        timeout_s=60,
+                )
+        daily = []
+        if date_from and date_to and date_from < date_to:
+            daily = self.bq.query(
+                                f"""WITH seller_day AS (
+                                    SELECT DATE(fecha) AS report_date, id_seller,
+                                        COUNTIF(estado_envio = 'Enviado') > 0 AS has_sent,
+                                        COUNTIF(open = 'Open') > 0 AS has_open,
+                                        COUNTIF(clic = 'Clic') > 0 AS has_click
+                                    FROM `{SENDS_TABLE}` WHERE {where} AND id_seller IS NOT NULL
+                                    GROUP BY report_date, id_seller
+                                )
+                                SELECT report_date AS date, COUNT(*) AS sellers_processed,
+                                    COUNTIF(has_sent) AS sellers_sent, COUNTIF(NOT has_sent) AS sellers_not_sent,
+                                    COUNTIF(has_sent AND has_open) AS sellers_with_open,
+                                    COUNTIF(has_sent AND has_click) AS sellers_with_click
+                                FROM seller_day GROUP BY date ORDER BY date""",
+                                params=params,
+                                timeout_s=60,
+                        )
+        return {
+                "template": template, "summary": result, "jobs": jobs,
+                "not_sent_causes": causes, "country_performance": country_rows,
+                "daily_performance": daily,
+            }
 
     def sends_detail(self, template: str, seller_id: str | None, status: str | None,
-                     page: int, page_size: int) -> dict:
-        where, params = self._send_filters(template, seller_id, status)
+                     page: int, page_size: int, countries: list[str] | None = None,
+                     date_from: date | str | None = None,
+                     date_to: date | str | None = None,
+                     job_id: str | None = None) -> dict:
+        where, params = self._send_filters(
+            template, seller_id, status, countries, date_from, date_to, job_id,
+        )
         count_rows = self.bq.query(
             f"SELECT COUNT(*) AS total FROM `{SENDS_TABLE}` WHERE {where}",
             params=params,
@@ -481,7 +603,8 @@ class TraceService:
             ScalarQueryParameter("offset", "INT64", (page - 1) * page_size),
         ]
         rows = self.bq.query(
-            f"""SELECT id_seller, email, template, estado_envio, causa, fecha, open, clic,
+                        f"""SELECT CAST(id_jobenvio AS STRING) AS job_id, id_seller, email,
+                            template, estado_envio, causa, fecha, open, clic,
               CASE estado_envio
                 WHEN 'Enviado' THEN 'ENVIADO'
                 WHEN 'Not Sent' THEN 'NO_ENVIADO'
@@ -494,6 +617,46 @@ class TraceService:
         )
         total = count_rows[0]["total"] if count_rows else 0
         return {"items": rows, "page": page, "page_size": page_size, "total": total}
+
+    def sends_export(self, template: str, seller_id: str | None, status: str | None,
+                     countries: list[str] | None = None,
+                     date_from: date | str | None = None,
+                     date_to: date | str | None = None,
+                     job_id: str | None = None) -> tuple[str, str]:
+        where, params = self._send_filters(
+            template, seller_id, status, countries, date_from, date_to, job_id,
+        )
+        rows = self.bq.query(
+            f"""SELECT CAST(id_jobenvio AS STRING) AS job_id, id_seller, email,
+              template, estado_envio, causa, fecha, open, clic,
+              CASE estado_envio
+                WHEN 'Enviado' THEN 'ENVIADO'
+                WHEN 'Not Sent' THEN 'NO_ENVIADO'
+                ELSE 'SIN_CLASIFICAR'
+              END AS normalized_status
+            FROM `{SENDS_TABLE}` WHERE {where}
+            ORDER BY fecha DESC""",
+            params=params,
+            timeout_s=120,
+        )
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Job ID", "Seller ID", "Email", "Template", "Estado original",
+            "Estado", "Causa", "Fecha", "Apertura", "Clic",
+        ])
+        for row in rows:
+            values = [
+                row.get("job_id"), row.get("id_seller"), row.get("email"),
+                row.get("template"), row.get("estado_envio"),
+                row.get("normalized_status"), row.get("causa"), row.get("fecha"),
+                row.get("open"), row.get("clic"),
+            ]
+            writer.writerow([
+                f"'{value}" if isinstance(value, str) and value.startswith(("=", "+", "-", "@", "\t", "\r")) else value
+                for value in values
+            ])
+        return output.getvalue(), f"seguimiento_envios_{date.today().isoformat()}.csv"
 
     def audience_history(self, template: str | None, created_by: str | None,
                          created_from: str | None, created_to: str | None,
