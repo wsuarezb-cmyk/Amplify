@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     # ── Trace ────────────────────────────────────────────────────────────
     # Se configuran solo después de validar dataset, ownership y permisos.
     TRACE_AUDIENCE_HISTORY_TABLE: str = ""
+    TRACE_AUDIENCE_MEMBERS_TABLE: str = "bi-fcom-drmb-sell-in-sbx.crm_sellers.trace_audience_members"
+    TRACE_SEND_RECONCILIATION_HISTORY_TABLE: str = "bi-fcom-drmb-sell-in-sbx.crm_sellers.trace_send_reconciliation_history"
+    TRACE_SEND_ALERT_MAX_BYTES: int = Field(default=10 * 1024 * 1024, ge=1024, le=31 * 1024 * 1024)
     TRACE_CONTACTS_SNAPSHOT_TABLE: str = ""
     TRACE_NOT_FOUND_ALERT_THRESHOLD: float = Field(default=0.20, ge=0.0, le=1.0)
     TRACE_DAILY_DROP_THRESHOLD: float = Field(default=0.20, ge=0.0, le=1.0)

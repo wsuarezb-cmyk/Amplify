@@ -36,11 +36,17 @@ function DeliveryResult({ summary }) {
   );
 }
 
-function InteractionFunnel({ summary }) {
-  const sent = summary.sellers_sent ?? 0;
-  const opened = summary.sellers_with_open ?? 0;
-  const clicked = summary.sellers_with_click ?? 0;
-  const stages = [
+function InteractionFunnel({ summary, audience }) {
+  const sent = audience?.sellers_sent_from_audience ?? summary.sellers_sent ?? 0;
+  const opened = audience?.sellers_with_open_from_audience ?? summary.sellers_with_open ?? 0;
+  const clicked = audience?.sellers_with_click_from_audience ?? summary.sellers_with_click ?? 0;
+  const expected = audience?.expected_sellers ?? 0;
+  const stages = audience ? [
+    { name: 'Audiencia generada', count: expected, share: expected ? 100 : 0, color: COLORS.dark },
+    { name: 'Sellers enviados', count: sent, share: rate(sent, expected), audienceShare: rate(sent, expected), color: COLORS.olive },
+    { name: 'Sellers con apertura', count: opened, share: rate(opened, sent), audienceShare: rate(opened, expected), color: COLORS.amber },
+    { name: 'Sellers con clic', count: clicked, share: rate(clicked, sent), audienceShare: rate(clicked, expected), color: COLORS.yellow },
+  ] : [
     { name: 'Sellers enviados', count: sent, share: sent ? 100 : 0, color: COLORS.dark },
     { name: 'Sellers con apertura', count: opened, share: rate(opened, sent), color: COLORS.amber },
     { name: 'Sellers con clic', count: clicked, share: rate(clicked, sent), color: COLORS.olive },
@@ -48,13 +54,14 @@ function InteractionFunnel({ summary }) {
 
   return (
     <ChartCard title="Interacción" subtitle="Apertura y clic como porcentaje de sellers enviados">
-      {!sent ? <p className="trace-send-report-empty">Sin sellers enviados para medir interacción.</p> : <div className="trace-send-interaction">
+      {audience && !expected ? <p className="trace-send-report-empty">La audiencia no tiene sellers con ID para comparar.</p> : !sent ? <p className="trace-send-report-empty">Sin sellers enviados para medir interacción.</p> : <div className="trace-send-interaction">
         {stages.map((stage, index) => <div className="trace-send-funnel-stage" key={stage.name}>
-          <div className="trace-send-funnel-label"><strong>{stage.name}</strong><span>{number(stage.count)} · {pct(stage.share)}</span></div>
+          <div className="trace-send-funnel-label"><strong>{stage.name}</strong><span>{number(stage.count)} · {pct(stage.share)}{stage.audienceShare == null ? '' : ` · ${pct(stage.audienceShare)} audiencia`}</span></div>
           <div className="trace-send-funnel-track"><span style={{ width: `${stage.share}%`, background: stage.color }} /></div>
           {index < stages.length - 1 && <span className="trace-send-funnel-arrow" aria-hidden="true">↓</span>}
         </div>)}
         {opened > 0 && <p className="trace-send-ctor">CTOR · {pct(rate(clicked, opened))}</p>}
+        {audience && <p className="trace-send-ctor">No encontrados en histórico · {number(audience.sellers_missing_from_history)} · Enviados fuera de audiencia · {number(audience.sellers_sent_outside_audience)}</p>}
       </div>}
     </ChartCard>
   );
@@ -153,14 +160,16 @@ function DailyPerformance({ rows }) {
 
 export default function TraceSendReporting({ report }) {
   const summary = report.summary ?? {};
+  const audience = report.audience_summary;
   const countries = report.country_performance ?? [];
   const dailyRows = report.daily_performance ?? [];
   return (
     <section className="trace-send-reporting">
       <div className="trace-section-heading"><div><span className="trace-step">03</span><h2>Reportería</h2></div></div>
+      <p className="trace-send-source">Fuente: histórico de Marketing Cloud · {audience ? `Audiencia ${audience.audience_id}` : 'Seguimiento sin audiencia asociada'}</p>
       <div className="trace-send-reporting-grid">
         <DeliveryResult summary={summary} />
-        <InteractionFunnel summary={summary} />
+        <InteractionFunnel summary={summary} audience={audience} />
         <CauseReport causes={report.not_sent_causes} />
         <CountryPerformance countries={countries} />
         <DailyPerformance rows={dailyRows} />

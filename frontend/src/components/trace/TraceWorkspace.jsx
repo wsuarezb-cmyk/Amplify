@@ -6,9 +6,11 @@ import {
 import TraceEmbed from './TraceEmbed.jsx';
 import AudienceGenerator from './AudienceGenerator.jsx';
 import TraceSendReporting from './TraceSendReporting.jsx';
+import TraceSendAlerts from './TraceSendAlerts.jsx';
 import { Metric, number } from './traceCommon.jsx';
 import {
   getTraceAudienceHistory,
+  getTraceAudiences,
   getTraceSendDetail,
   getTraceSendSummary,
   exportTraceSendDetail,
@@ -19,6 +21,7 @@ const MODULES = [
   ['audiences', 'Generación de audiencias'],
   ['history', 'Historial'],
   ['sends', 'Seguimiento de envíos'],
+  ['alerts', 'Alertas de envío'],
   ['looker', 'Looker Studio'],
 ];
 const PAGE_SIZE = 50;
@@ -109,6 +112,23 @@ function HistoryDetail({ item }) {
   );
 }
 
+function HistoryFilterSummary({ filters }) {
+  if (!filters.length) return <span className="trace-history-no-filters">—</span>;
+  const visible = filters.slice(0, 2);
+  return <div className="trace-history-filter-list">
+    {visible.map(filter => <span key={filter.label}><strong>{filter.label}</strong>{filter.value}</span>)}
+    {filters.length > visible.length && <span className="trace-history-filter-more">+{filters.length - visible.length} filtros</span>}
+  </div>;
+}
+
+function HistoryVolume({ item }) {
+  const values = [item.initial_sellers, item.found_sellers, item.final_sellers];
+  const labels = ['Iniciales', 'Encontrados', 'Elegibles'];
+  return <div className="trace-history-volume" aria-label={labels.map((label, index) => `${label}: ${values[index] == null ? 'sin dato' : number(values[index])}`).join('; ')}>
+    {values.map((value, index) => <span key={labels[index]}><small>{labels[index]}</small><strong>{value == null ? '—' : number(value)}</strong></span>)}
+  </div>;
+}
+
 function ErrorMessage({ children }) {
   return children ? <div className="trace-error" role="alert">{children}</div> : null;
 }
@@ -118,6 +138,13 @@ function TraceWorkspace() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sendTemplate, setSendTemplate] = useState('');
+  const [sendMode, setSendMode] = useState('historical');
+  const [sendAudiences, setSendAudiences] = useState({ items: [], page: 1, total: 0 });
+  const [sendAudienceQuery, setSendAudienceQuery] = useState('');
+  const [sendAudienceFrom, setSendAudienceFrom] = useState('');
+  const [sendAudienceTo, setSendAudienceTo] = useState('');
+  const [sendAudienceId, setSendAudienceId] = useState('');
+  const [loadingAudiences, setLoadingAudiences] = useState(false);
   const [sendSummary, setSendSummary] = useState(null);
   const [sendDetail, setSendDetail] = useState(null);
   const [sendAppliedFilters, setSendAppliedFilters] = useState(null);
@@ -158,7 +185,9 @@ function TraceWorkspace() {
         seller_id: sendSeller.trim(), status: sendStatus, job_id: selectedJobId,
       };
       const [summary, detail] = await Promise.all([
-        getTraceSendSummary(filters),
+        getTraceSendSummary({
+          ...filters, audience_id: sendMode === 'audience' ? sendAudienceId : '',
+        }),
         getTraceSendDetail({ ...filters, page, page_size: PAGE_SIZE }),
       ]);
       setSendJobs(summary.jobs ?? []);
@@ -210,6 +239,21 @@ function TraceWorkspace() {
     }
   };
 
+  const loadSendAudiences = async (page = 1) => {
+    setLoadingAudiences(true);
+    setError('');
+    try {
+      setSendAudiences(await getTraceAudiences({
+        search: sendAudienceQuery.trim(), created_from: sendAudienceFrom,
+        created_to: sendAudienceTo, page, page_size: 20,
+      }));
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setLoadingAudiences(false);
+    }
+  };
+
   return (
     <div className="trace-workspace">
       <nav className="trace-module-tabs" aria-label="Módulos de Trace">
@@ -226,8 +270,35 @@ function TraceWorkspace() {
 
       {module === 'sends' && <div className="trace-content">
         <section className="trace-section"><div className="trace-section-heading"><div><span className="trace-step">01</span><h2>Busca un envío</h2></div></div>
+          <fieldset className="trace-send-origin">
+            <legend>Origen del seguimiento</legend>
+            <label><input type="radio" name="send-origin" checked={sendMode === 'historical'} onChange={() => { setSendMode('historical'); setSendAudienceId(''); }} />Sin audiencia / envío histórico</label>
+            <label><input type="radio" name="send-origin" checked={sendMode === 'audience'} onChange={() => setSendMode('audience')} />Con audiencia de Amplify</label>
+          </fieldset>
+          {sendMode === 'audience' && <div className="trace-send-audience-picker">
+            <div className="trace-send-audience-search">
+              <label className="trace-field"><span>Buscar audiencia, template o usuario</span><input value={sendAudienceQuery} onChange={event => setSendAudienceQuery(event.target.value)} /></label>
+              <label className="trace-field"><span>Generada desde</span><input type="date" value={sendAudienceFrom} onChange={event => setSendAudienceFrom(event.target.value)} /></label>
+              <label className="trace-field"><span>Generada hasta</span><input type="date" value={sendAudienceTo} onChange={event => setSendAudienceTo(event.target.value)} /></label>
+              <button className="trace-button trace-button--quiet" type="button" onClick={() => loadSendAudiences(1)} disabled={loadingAudiences}>{loadingAudiences ? 'Buscando…' : 'Buscar audiencia'}</button>
+            </div>
+            <label className="trace-field"><span>Audiencia generada</span><select value={sendAudienceId} onChange={event => {
+              const selected = sendAudiences.items.find(item => item.audience_id === event.target.value);
+              setSendAudienceId(event.target.value);
+              if (selected) setSendTemplate(selected.template);
+            }}>
+              <option value="">Selecciona una audiencia con miembros</option>
+              {sendAudiences.items.map(item => <option value={item.audience_id} key={item.audience_id}>
+                {item.audience_id} · {item.template} · {dateLabel(item.created_at)} · {item.created_by} · {number(item.member_sellers)} sellers / {number(item.member_contacts)} contactos
+              </option>)}
+            </select></label>
+            {sendAudiences.total > 20 && <div className="trace-pagination"><span>{number(sendAudiences.total)} audiencias · página {sendAudiences.page}</span><div>
+              <button className="trace-button trace-button--quiet" type="button" onClick={() => loadSendAudiences(sendAudiences.page - 1)} disabled={loadingAudiences || sendAudiences.page <= 1}>Anterior</button>
+              <button className="trace-button trace-button--quiet" type="button" onClick={() => loadSendAudiences(sendAudiences.page + 1)} disabled={loadingAudiences || sendAudiences.page * 20 >= sendAudiences.total}>Siguiente</button>
+            </div></div>}
+          </div>}
           <div className="trace-search-controls trace-send-search">
-            <label className="trace-field"><span>Template exacto</span><input value={sendTemplate} onChange={event => setSendTemplate(event.target.value)} /></label>
+            <label className="trace-field"><span>Template exacto</span><input value={sendTemplate} readOnly={sendMode === 'audience' && Boolean(sendAudienceId)} onChange={event => setSendTemplate(event.target.value)} /></label>
             <div className="trace-field"><span>País</span>
               <details className="trace-country-picker">
                 <summary>{sendCountries.length ? `${sendCountries.length} seleccionados` : 'Todos'}</summary>
@@ -243,7 +314,7 @@ function TraceWorkspace() {
             <label className="trace-field"><span>Fecha hasta</span><input type="date" value={sendDateTo} onChange={event => setSendDateTo(event.target.value)} /></label>
             <label className="trace-field"><span>Seller ID (opcional)</span><input value={sendSeller} onChange={event => setSendSeller(event.target.value)} /></label>
             <label className="trace-field"><span>Estado</span><select value={sendStatus} onChange={event => setSendStatus(event.target.value)}><option value="">Todos</option><option value="ENVIADO">Enviado</option><option value="NO_ENVIADO">No enviado</option></select></label>
-            <button className="trace-button trace-button--primary" type="button" onClick={() => { setSendJobId(''); loadSends(1, ''); }} disabled={loading || !sendTemplate.trim()}>{loading ? 'Buscando…' : 'Buscar'}</button>
+            <button className="trace-button trace-button--primary" type="button" onClick={() => { setSendJobId(''); loadSends(1, ''); }} disabled={loading || !sendTemplate.trim() || (sendMode === 'audience' && !sendAudienceId)}>{loading ? 'Buscando…' : 'Buscar'}</button>
           </div>
         </section>
         {sendSummary && <SendResults summary={sendSummary} detail={sendDetail} jobs={sendJobs} selectedJobId={sendJobId}
@@ -263,6 +334,8 @@ function TraceWorkspace() {
         </section>
         {history && <HistoryResults result={history} />}
       </div>}
+
+      {module === 'alerts' && <div className="trace-content"><TraceSendAlerts /></div>}
 
       {module === 'looker' && <div className="trace-legacy"><p>Dashboard anterior · disponible durante la validación de la experiencia nativa.</p><TraceEmbed /></div>}
     </div>
@@ -313,16 +386,15 @@ function SendResults({ summary, detail, jobs, selectedJobId, page, loading, expo
 
 function HistoryResults({ result }) {
   return <section className="trace-section"><div className="trace-section-heading"><h2>{number(result.total)} audiencias</h2></div>
-    <div className="trace-table-wrap"><table className="trace-table"><thead><tr><th>Fecha</th><th>Creada por</th><th>Template</th><th>Seller IDs iniciales</th><th>Encontrados</th><th>Elegibles</th><th>Contactos</th><th>Filtros aplicados</th><th>Estado</th><th>Detalle</th></tr></thead>
+    <div className="trace-table-wrap"><table className="trace-table trace-history-table"><thead><tr><th>Fecha</th><th>Template / audiencia</th><th>Creada por</th><th>Progresión de sellers</th><th>Contactos</th><th>Filtros aplicados</th><th>Estado</th><th>Auditoría</th></tr></thead>
       <tbody>{result.items.map(item => {
         const filters = historyFilters(item);
         return <tr key={item.audience_id}>
-          <td>{item.created_at ? dateLabel(item.created_at) : '—'}</td><td>{item.created_by || '—'}</td><td>{item.template || '—'}</td>
-          <td>{item.initial_sellers == null ? '—' : number(item.initial_sellers)}</td>
-          <td>{item.found_sellers == null ? '—' : number(item.found_sellers)}</td>
-          <td>{item.final_sellers == null ? '—' : number(item.final_sellers)}</td>
+          <td>{item.created_at ? dateLabel(item.created_at) : '—'}</td>
+          <td><div className="trace-history-template"><strong>{item.template || '—'}</strong><small>{item.audience_id || '—'}</small></div></td>
+          <td>{item.created_by || '—'}</td><td><HistoryVolume item={item} /></td>
           <td>{item.final_contacts == null ? '—' : number(item.final_contacts)}</td>
-          <td className="trace-history-filter-summary">{filters.length ? filters.map(filter => `${filter.label}: ${filter.value}`).join(' · ') : '—'}</td>
+          <td><HistoryFilterSummary filters={filters} /></td>
           <td>{item.status || '—'}</td><td><HistoryDetail item={item} /></td>
         </tr>;
       })}</tbody>

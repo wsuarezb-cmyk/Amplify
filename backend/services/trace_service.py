@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -17,6 +18,102 @@ SENDS_TABLE = "bi-fcom-drmb-sell-in-sbx.crm_sellers.detalle_contactos_historico"
 BATCH_SIZE = 1000
 NULL_OPTION = "__NULL__"
 SEND_COUNTRIES = {"CL_Sellers", "PE_Sellers", "CO_Sellers"}
+DEFAULT_SEND_CSV_MAX_BYTES = 10 * 1024 * 1024
+SEND_CSV_MIME_TYPES = {"text/csv", "application/vnd.ms-excel", "application/octet-stream"}
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$")
+
+
+def normalize_email(value: str) -> str:
+    return (value or "").strip().lower()
+
+
+def parse_send_csv(file_name: str, content_type: str, content: bytes,
+                   max_bytes: int = DEFAULT_SEND_CSV_MAX_BYTES) -> dict:
+    safe_name = (file_name or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    media_type = (content_type or "").split(";", 1)[0].strip().lower()
+    if not safe_name or not safe_name.lower().endswith(".csv"):
+        raise ValueError("El archivo debe tener extensión .csv.")
+    if media_type not in SEND_CSV_MIME_TYPES:
+        raise ValueError("El tipo de contenido del archivo no es CSV válido.")
+    if not content:
+        raise ValueError("El archivo CSV está vacío.")
+    if len(content) > max_bytes:
+        raise ValueError(f"El archivo supera el límite de {max_bytes // (1024 * 1024)} MB.")
+    if b"\x00" in content:
+        raise ValueError("El archivo contiene datos binarios; carga un CSV de texto.")
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("El CSV debe estar codificado en UTF-8.") from exc
+
+    try:
+        reader = csv.reader(io.StringIO(text, newline=""), strict=True)
+        columns = [column.strip() for column in next(reader)]
+        if not columns or not any(columns):
+            raise ValueError("El CSV debe incluir encabezados.")
+        if len(set(columns)) != len(columns):
+            raise ValueError("El CSV contiene encabezados duplicados.")
+        records = []
+        for row in reader:
+            if not row:
+                row = [""] * len(columns)
+            if len(row) != len(columns):
+                raise ValueError("El CSV contiene filas con distinta cantidad de columnas.")
+            records.append(row)
+    except (csv.Error, StopIteration) as exc:
+        raise ValueError("No se pudo interpretar el CSV o no contiene encabezados.") from exc
+
+    def normalized_header(column: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", column.casefold()).strip()
+
+    candidates = [
+        column for column in columns
+        if normalized_header(column) in {"email address", "email", "subscriber key"}
+    ]
+    preferred = next((column for column in candidates if normalized_header(column) == "email address"), None)
+    if preferred is None:
+        preferred = next((column for column in candidates if normalized_header(column) == "email"), None)
+    if preferred is None and candidates:
+        preferred = candidates[0]
+    return {
+        "file_name": safe_name,
+        "file_size": len(content),
+        "columns": columns,
+        "email_column_candidates": candidates,
+        "preferred_email_column": preferred,
+        "records": records,
+    }
+
+
+def inspect_send_csv(parsed: dict, email_column: str) -> dict:
+    if email_column not in parsed["columns"]:
+        raise ValueError("Selecciona una columna válida como email.")
+    index = parsed["columns"].index(email_column)
+    seen = set()
+    emails = []
+    empty_emails = 0
+    invalid_emails = 0
+    duplicate_emails = 0
+    for row in parsed["records"]:
+        email = normalize_email(row[index])
+        if not email:
+            empty_emails += 1
+        elif not EMAIL_RE.fullmatch(email):
+            invalid_emails += 1
+        else:
+            emails.append(email)
+            if email in seen:
+                duplicate_emails += 1
+            seen.add(email)
+    return {
+        "file_rows": len(parsed["records"]),
+        "valid_emails": len(emails),
+        "distinct_valid_emails": len(seen),
+        "invalid_emails": invalid_emails,
+        "empty_emails": empty_emails,
+        "duplicate_emails": duplicate_emails,
+        "emails": emails,
+    }
 
 # Columnas mínimas que la pantalla necesita para filtrar, graficar y conciliar en memoria.
 DATASET_COLUMNS = [
@@ -125,19 +222,23 @@ def _aggregate_seller_rollups(rows: list[dict]) -> dict:
 class TraceService:
     def __init__(self, bq, audit_table_id: str = "", snapshot_table_id: str = "",
                  not_found_alert_threshold: float = 0.20,
-                 daily_drop_threshold: float = 0.20):
+                 daily_drop_threshold: float = 0.20,
+                 members_table_id: str = "bi-fcom-drmb-sell-in-sbx.crm_sellers.trace_audience_members",
+                 reconciliation_table_id: str = "bi-fcom-drmb-sell-in-sbx.crm_sellers.trace_send_reconciliation_history"):
         self.bq = bq
         self.audit_table_id = audit_table_id
         self.snapshot_table_id = snapshot_table_id
         self.not_found_alert_threshold = not_found_alert_threshold
         self.daily_drop_threshold = daily_drop_threshold
+        self.members_table_id = members_table_id
+        self.reconciliation_table_id = reconciliation_table_id
 
     @staticmethod
-    def _checked_table_id(table_id: str) -> str:
+    def _checked_table_id(table_id: str, setting_name: str = "TRACE_AUDIENCE_HISTORY_TABLE") -> str:
         table_id = (table_id or "").strip()
         if not table_id:
             raise ValueError(
-                "Falta configurar TRACE_AUDIENCE_HISTORY_TABLE en backend/.env; "
+                f"Falta configurar {setting_name} en backend/.env; "
                 "consulta docs/trace-setup.md antes de exportar."
             )
         if not re.fullmatch(r"[A-Za-z0-9_.-]+", table_id):
@@ -268,13 +369,14 @@ class TraceService:
             },
         }
 
-    def preview(self, raw_input: str, search_type: str, filters: dict) -> dict:
+    def preview(self, raw_input: str, search_type: str, filters: dict,
+                _source_rows: list[dict] | None = None) -> dict:
         parsed = parse_trace_input(raw_input, search_type)
         identifiers = parsed["identifiers"]
         if not identifiers:
             raise ValueError("Ingresa al menos un identificador válido.")
 
-        rows = self._fetch_contacts(identifiers, search_type)
+        rows = _source_rows if _source_rows is not None else self._fetch_contacts(identifiers, search_type)
         matched_identifiers = set()
         for row in rows:
             source_value = row.get(SEARCH_COLUMNS[search_type])
@@ -397,16 +499,22 @@ class TraceService:
                confirm_warnings: bool, user_email: str) -> tuple[str, str, dict]:
         if not template.strip():
             raise ValueError("El nombre del template es obligatorio.")
-        preview = self.preview(raw_input, search_type, filters)
+        parsed = parse_trace_input(raw_input, search_type)
+        if not parsed["identifiers"]:
+            raise ValueError("Ingresa al menos un identificador válido.")
+        source_rows = self._fetch_contacts(parsed["identifiers"], search_type)
+        preview = self.preview(raw_input, search_type, filters, _source_rows=source_rows)
         if not preview["reconciliation_ok"] or preview["result"]["final_contacts"] == 0:
             raise ValueError("La audiencia no cumple las validaciones para descargar.")
         if any(alert["requires_confirmation"] for alert in preview["alerts"]) and not confirm_warnings:
             raise PermissionError("Confirma explícitamente las advertencias antes de descargar.")
         table_id = self._checked_table_id(self.audit_table_id)
+        members_table_id = self._checked_table_id(
+            self.members_table_id, setting_name="TRACE_AUDIENCE_MEMBERS_TABLE",
+        )
 
-        parsed = parse_trace_input(raw_input, search_type)
         rows, _ = self._apply_filters(
-            self._fetch_contacts(parsed["identifiers"], search_type), filters
+            source_rows, filters,
         )
         rows = [row for row in rows if row.get("email") or row.get("phone")]
         buffer = io.StringIO(newline="")
@@ -418,6 +526,30 @@ class TraceService:
         audience_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc)
         filename = f"trace_audience_{created_at:%Y%m%dT%H%M%SZ}_{audience_id[:8]}.csv"
+        member_rows = []
+        duplicate_counts = Counter()
+        for row in rows:
+            seller_id = row.get("src_id") or None
+            email = row.get("email") or None
+            phone = row.get("phone") or None
+            identity = (seller_id or "", email or "", phone or "")
+            occurrence = duplicate_counts[identity]
+            duplicate_counts[identity] += 1
+            row_id = hashlib.sha256(
+                f"{audience_id}\x1f{identity[0]}\x1f{identity[1]}\x1f{identity[2]}\x1f{occurrence}".encode("utf-8")
+            ).hexdigest()
+            member_rows.append({
+                "audience_id": audience_id,
+                "created_at": created_at,
+                "created_date": created_at.date(),
+                "created_by": user_email,
+                "template": template.strip(),
+                "seller_id": seller_id,
+                "email": email,
+                "phone": phone,
+                "email_normalized": email.strip().lower() if email else None,
+                "row_id": row_id,
+            })
         audit = {
             "audience_id": audience_id,
             "created_at": created_at,
@@ -435,7 +567,27 @@ class TraceService:
             "export_file_name": filename,
             "status": "EXPORTED",
         }
-        self.bq.insert_rows_dml(table_id, [audit])
+        self.bq.insert_rows_dml(members_table_id, member_rows)
+        try:
+            self.bq.insert_rows_dml(table_id, [audit])
+        except Exception as exc:
+            try:
+                self.bq.execute_dml(
+                    f"DELETE FROM `{members_table_id}` WHERE audience_id = @audience_id",
+                    params=[ScalarQueryParameter("audience_id", "STRING", audience_id)],
+                )
+            except Exception:
+                logger.error(
+                    "Trace audience snapshot cleanup failed: audience_id=%s", audience_id,
+                )
+                raise RuntimeError(
+                    "No se pudo completar el registro de la audiencia ni limpiar su snapshot."
+                ) from exc
+            logger.warning(
+                "Trace audience audit insert failed; snapshot cleaned: audience_id=%s",
+                audience_id,
+            )
+            raise RuntimeError("No se pudo registrar la audiencia exportada.") from exc
         logger.info(
             "Trace audience export completed: audience_id=%s sellers=%d contacts=%d",
             audience_id, audit["final_sellers"], audit["final_contacts"],
@@ -490,7 +642,8 @@ class TraceService:
                       status: str | None = None, countries: list[str] | None = None,
                       date_from: date | str | None = None,
                       date_to: date | str | None = None,
-                      job_id: str | None = None) -> dict:
+                      job_id: str | None = None,
+                      audience_id: str | None = None) -> dict:
         where, params = self._send_filters(
             template, seller_id, status, countries, date_from, date_to, job_id,
         )
@@ -579,11 +732,394 @@ class TraceService:
                                 params=params,
                                 timeout_s=60,
                         )
+        audience_summary = None
+        if audience_id:
+            audience_summary = self._audience_send_summary(
+                template, audience_id, seller_id, countries, date_from, date_to, job_id,
+            )
         return {
                 "template": template, "summary": result, "jobs": jobs,
                 "not_sent_causes": causes, "country_performance": country_rows,
-                "daily_performance": daily,
+                "daily_performance": daily, "audience_summary": audience_summary,
             }
+
+    def _audience_send_summary(self, template: str, audience_id: str,
+                               seller_id: str | None, countries: list[str] | None,
+                               date_from: date | str | None, date_to: date | str | None,
+                               job_id: str | None) -> dict:
+        history_table = self._checked_table_id(self.audit_table_id)
+        members_table = self._checked_table_id(
+            self.members_table_id, setting_name="TRACE_AUDIENCE_MEMBERS_TABLE",
+        )
+        audience_rows = self.bq.query(
+            f"""SELECT h.audience_id, h.template, h.created_at, h.created_by,
+              h.final_sellers, h.final_contacts,
+              COUNT(DISTINCT m.seller_id) AS member_sellers,
+              COUNT(DISTINCT m.row_id) AS member_contacts
+            FROM `{history_table}` AS h
+            JOIN `{members_table}` AS m USING (audience_id)
+            WHERE h.audience_id = @audience_id
+            GROUP BY h.audience_id, h.template, h.created_at, h.created_by,
+              h.final_sellers, h.final_contacts""",
+            params=[ScalarQueryParameter("audience_id", "STRING", audience_id)],
+            timeout_s=60,
+        )
+        if not audience_rows:
+            raise ValueError("La audiencia no existe o no tiene miembros persistidos.")
+        audience = audience_rows[0]
+        if audience["template"] != template:
+            raise ValueError("El template no coincide con la audiencia seleccionada.")
+
+        sent_where, sent_params = self._send_filters(
+            template, seller_id, None, countries, date_from, date_to, job_id,
+        )
+        compare_rows = self.bq.query(
+            f"""WITH expected AS (
+                SELECT DISTINCT seller_id
+                FROM `{members_table}`
+                WHERE audience_id = @audience_id AND seller_id IS NOT NULL
+                  AND (@seller_id IS NULL OR seller_id = @seller_id)
+              ), sent AS (
+                                SELECT id_seller AS seller_id,
+                                    COUNTIF(estado_envio = 'Enviado') > 0 AS has_sent,
+                                    COUNTIF(open = 'Open') > 0 AS has_open,
+                                    COUNTIF(clic = 'Clic') > 0 AS has_click
+                FROM `{SENDS_TABLE}` WHERE {sent_where}
+                                    AND id_seller IS NOT NULL
+                                GROUP BY seller_id
+              )
+              SELECT
+                (SELECT COUNT(*) FROM expected) AS expected_sellers,
+                                (SELECT COUNTIF(s.has_sent) FROM expected e LEFT JOIN sent s USING (seller_id)) AS sellers_sent_from_audience,
+                                (SELECT COUNTIF(s.has_sent AND s.has_open) FROM expected e LEFT JOIN sent s USING (seller_id)) AS sellers_with_open_from_audience,
+                                (SELECT COUNTIF(s.has_sent AND s.has_click) FROM expected e LEFT JOIN sent s USING (seller_id)) AS sellers_with_click_from_audience,
+                                (SELECT COUNTIF(NOT COALESCE(s.has_sent, FALSE)) FROM expected e LEFT JOIN sent s USING (seller_id)) AS sellers_missing_from_history,
+                                (SELECT COUNTIF(s.has_sent) FROM sent s LEFT JOIN expected e USING (seller_id) WHERE e.seller_id IS NULL) AS sellers_sent_outside_audience""",
+                        params=[ScalarQueryParameter("audience_id", "STRING", audience_id)]
+                        + sent_params
+                        + ([] if seller_id else [ScalarQueryParameter("seller_id", "STRING", None)]),
+            timeout_s=60,
+        )
+        matched = compare_rows[0] if compare_rows else {}
+        expected = matched.get("expected_sellers", 0)
+        return {
+            **audience,
+            **matched,
+            "send_rate": matched.get("sellers_sent_from_audience", 0) / expected if expected else None,
+        }
+
+    def search_audiences(self, search: str | None, created_by: str | None,
+                         created_from: date | str | None, created_to: date | str | None,
+                         page: int, page_size: int, members_only: bool = True) -> dict:
+        history_table = self._checked_table_id(self.audit_table_id)
+        members_table = self._checked_table_id(
+            self.members_table_id, setting_name="TRACE_AUDIENCE_MEMBERS_TABLE",
+        )
+        clauses = []
+        if members_only:
+            clauses.append(f"EXISTS (SELECT 1 FROM `{members_table}` AS m WHERE m.audience_id = h.audience_id)")
+        params = []
+        if search:
+            clauses.append("(STRPOS(LOWER(h.audience_id), LOWER(@search)) > 0 OR STRPOS(LOWER(h.template), LOWER(@search)) > 0 OR STRPOS(LOWER(h.created_by), LOWER(@search)) > 0)")
+            params.append(ScalarQueryParameter("search", "STRING", search.strip()))
+        if created_by:
+            clauses.append("LOWER(h.created_by) = LOWER(@created_by)")
+            params.append(ScalarQueryParameter("created_by", "STRING", created_by.strip()))
+        if created_from:
+            clauses.append("h.created_date >= @created_from")
+            params.append(ScalarQueryParameter("created_from", "DATE", created_from))
+        if created_to:
+            clauses.append("h.created_date <= @created_to")
+            params.append(ScalarQueryParameter("created_to", "DATE", created_to))
+        where = " AND ".join(clauses) if clauses else "TRUE"
+        total_rows = self.bq.query(
+            f"SELECT COUNT(*) AS total FROM `{history_table}` AS h WHERE {where}",
+            params=params,
+            timeout_s=60,
+        )
+        rows = self.bq.query(
+            f"""SELECT h.audience_id, h.template, h.created_at, h.created_by,
+              h.final_sellers, h.final_contacts,
+              COUNT(DISTINCT m.seller_id) AS member_sellers,
+                            COUNT(DISTINCT m.row_id) AS member_contacts,
+                            COUNT(DISTINCT m.row_id) > 0 AS has_members
+            FROM `{history_table}` AS h
+                        LEFT JOIN `{members_table}` AS m USING (audience_id)
+            WHERE {where}
+            GROUP BY h.audience_id, h.template, h.created_at, h.created_by,
+              h.final_sellers, h.final_contacts
+            ORDER BY h.created_at DESC LIMIT @limit OFFSET @offset""",
+            params=params + [
+                ScalarQueryParameter("limit", "INT64", page_size),
+                ScalarQueryParameter("offset", "INT64", (page - 1) * page_size),
+            ],
+            timeout_s=60,
+        )
+        return {"items": rows, "page": page, "page_size": page_size,
+                "total": total_rows[0]["total"] if total_rows else 0}
+
+    def _send_alert_tables(self) -> tuple[str, str, str]:
+        return (
+            self._checked_table_id(self.audit_table_id),
+            self._checked_table_id(self.members_table_id, "TRACE_AUDIENCE_MEMBERS_TABLE"),
+            self._checked_table_id(self.reconciliation_table_id, "TRACE_SEND_RECONCILIATION_HISTORY_TABLE"),
+        )
+
+    def _send_alert_audience_summary(self, audience_id: str) -> dict:
+        history_table, members_table, _ = self._send_alert_tables()
+        rows = self.bq.query(
+            f"""SELECT h.audience_id, h.template, h.created_at, h.created_by,
+              h.final_sellers, h.final_contacts,
+              COUNT(DISTINCT m.seller_id) AS member_sellers,
+              COUNT(DISTINCT m.row_id) AS member_contacts
+            FROM `{history_table}` AS h
+            JOIN `{members_table}` AS m USING (audience_id)
+            WHERE h.audience_id = @audience_id
+            GROUP BY h.audience_id, h.template, h.created_at, h.created_by,
+              h.final_sellers, h.final_contacts""",
+            params=[ScalarQueryParameter("audience_id", "STRING", audience_id)],
+            timeout_s=60,
+        )
+        if not rows:
+            raise ValueError("La audiencia no existe o no tiene miembros persistidos.")
+        return rows[0]
+
+    def validate_send_csv(self, audience_id: str, file_name: str, content_type: str,
+                          content: bytes, email_column: str | None = None,
+                          max_bytes: int = DEFAULT_SEND_CSV_MAX_BYTES) -> dict:
+        parsed = parse_send_csv(file_name, content_type, content, max_bytes)
+        audience = self._send_alert_audience_summary(audience_id)
+        email_summary = inspect_send_csv(parsed, email_column) if email_column else None
+        file_hash = hashlib.sha256(content).hexdigest()
+        _, _, history_table = self._send_alert_tables()
+        previous = self.bq.query(
+            f"""SELECT reconciliation_id FROM `{history_table}`
+            WHERE audience_id = @audience_id AND file_hash = @file_hash
+            ORDER BY uploaded_at DESC LIMIT 1""",
+            params=[
+                ScalarQueryParameter("audience_id", "STRING", audience_id),
+                ScalarQueryParameter("file_hash", "STRING", file_hash),
+            ],
+            timeout_s=30,
+        )
+        return {
+            "audience": audience,
+            "file_name": parsed["file_name"],
+            "file_size": parsed["file_size"],
+            "file_rows": len(parsed["records"]),
+            "columns": parsed["columns"],
+            "email_column_candidates": parsed["email_column_candidates"],
+            "preferred_email_column": parsed["preferred_email_column"],
+            "email_quality": {
+                key: value for key, value in (email_summary or {}).items() if key != "emails"
+            } if email_summary else None,
+            "previous_reconciliation_id": previous[0]["reconciliation_id"] if previous else None,
+        }
+
+    def reconcile_send_csv(self, audience_id: str, file_name: str, content_type: str,
+                           content: bytes, email_column: str, uploaded_by: str,
+                           allow_duplicate: bool = False,
+                           max_bytes: int = DEFAULT_SEND_CSV_MAX_BYTES) -> dict:
+        parsed = parse_send_csv(file_name, content_type, content, max_bytes)
+        email_summary = inspect_send_csv(parsed, email_column)
+        audience = self._send_alert_audience_summary(audience_id)
+        history_table, members_table, reconciliation_table = self._send_alert_tables()
+        file_hash = hashlib.sha256(content).hexdigest()
+        previous = self.bq.query(
+            f"""SELECT reconciliation_id FROM `{reconciliation_table}`
+            WHERE audience_id = @audience_id AND file_hash = @file_hash
+            ORDER BY uploaded_at DESC LIMIT 1""",
+            params=[
+                ScalarQueryParameter("audience_id", "STRING", audience_id),
+                ScalarQueryParameter("file_hash", "STRING", file_hash),
+            ],
+            timeout_s=30,
+        )
+        if previous and not allow_duplicate:
+            raise PermissionError(
+                "Este archivo ya fue conciliado para la audiencia. Confirma la repetición para continuar."
+            )
+
+        members = self.bq.query(
+            f"""SELECT seller_id, email, email_normalized, row_id
+            FROM `{members_table}` WHERE audience_id = @audience_id ORDER BY row_id""",
+            params=[ScalarQueryParameter("audience_id", "STRING", audience_id)],
+            timeout_s=60,
+        )
+        if not members:
+            raise ValueError("La audiencia no existe o no tiene miembros persistidos.")
+
+        uploaded_counts = Counter(email_summary["emails"])
+        uploaded_emails = set(uploaded_counts)
+        expected_emails = set()
+        expected_contacts = []
+        members_by_seller = {}
+        present_sellers = set()
+        for member in members:
+            email = normalize_email(member.get("email"))
+            valid_email = bool(email and EMAIL_RE.fullmatch(email))
+            if valid_email:
+                expected_emails.add(email)
+            present = valid_email and email in uploaded_emails
+            seller_id = member.get("seller_id")
+            if seller_id:
+                members_by_seller.setdefault(seller_id, []).append(present)
+                if present:
+                    present_sellers.add(seller_id)
+            expected_contacts.append({
+                "seller_id": seller_id,
+                "email": member.get("email"),
+                "status": "PRESENT" if present else "MISSING",
+                "observation": "Presente en archivo de envío" if present else (
+                    "La audiencia no contiene un email válido" if not valid_email
+                    else "No presente en archivo de envío"
+                ),
+            })
+
+        expected_sellers_set = {member.get("seller_id") for member in members if member.get("seller_id")}
+        expected_sellers = len(expected_sellers_set)
+        present_seller_count = len(present_sellers)
+        expected_contact_count = len(expected_contacts)
+        present_contact_count = sum(row["status"] == "PRESENT" for row in expected_contacts)
+        missing_seller_count = expected_sellers - present_seller_count
+        missing_contact_count = expected_contact_count - present_contact_count
+        seller_coverage = present_seller_count / expected_sellers if expected_sellers else None
+        contact_coverage = present_contact_count / expected_contact_count if expected_contact_count else None
+        unexpected = sorted(uploaded_emails - expected_emails)
+        duplicate_details = [
+            {"seller_id": None, "email": email, "status": "DUPLICATE", "observation": f"{count} apariciones"}
+            for email, count in sorted(uploaded_counts.items()) if count > 1
+        ]
+        column_index = parsed["columns"].index(email_column)
+        invalid_details = []
+        for row in parsed["records"]:
+            raw_email = row[column_index].strip()
+            if not raw_email or not EMAIL_RE.fullmatch(normalize_email(raw_email)):
+                invalid_details.append({
+                    "seller_id": None, "email": raw_email, "status": "INVALID",
+                    "observation": "Email vacío" if not raw_email else "Formato de email inválido",
+                })
+        unexpected_details = [
+            {"seller_id": None, "email": email, "status": "UNEXPECTED", "observation": "Email no esperado en la audiencia"}
+            for email in unexpected
+        ]
+        seller_partial = []
+        for seller_id, outcomes in members_by_seller.items():
+            if any(outcomes) and not all(outcomes):
+                seller_partial.append({
+                    "seller_id": seller_id,
+                    "email": None,
+                    "status": "PARTIAL",
+                    "observation": "Algunos contactos del seller no aparecen en el archivo",
+                })
+
+        def alert_for(label: str, expected: int, missing: int) -> dict | None:
+            if not expected or not missing:
+                return None
+            rate = missing / expected
+            critical = rate >= self.not_found_alert_threshold
+            return {
+                "severity": "critical" if critical else "warning",
+                "message": (
+                    f"Alerta crítica: el porcentaje de {label} ausentes es igual o superior al "
+                    f"{self.not_found_alert_threshold:.0%}."
+                    if critical else f"Advertencia: {missing} {label} esperados no aparecen en el archivo."
+                ),
+                "missing": missing,
+                "expected": expected,
+                "rate": rate,
+            }
+
+        alerts = [alert for alert in (
+            alert_for("sellers", expected_sellers, missing_seller_count),
+            alert_for("contactos", expected_contact_count, missing_contact_count),
+        ) if alert]
+        if expected_sellers and not missing_seller_count:
+            alerts.append({"severity": "success", "message": "Cobertura completa: todos los sellers esperados aparecen en el archivo."})
+
+        reconciliation_id = str(uuid.uuid4())
+        uploaded_at = datetime.now(timezone.utc)
+        audit = {
+            "reconciliation_id": reconciliation_id,
+            "audience_id": audience_id,
+            "template": audience["template"],
+            "uploaded_at": uploaded_at,
+            "uploaded_date": uploaded_at.date(),
+            "uploaded_by": uploaded_by,
+            "file_name": parsed["file_name"],
+            "file_hash": file_hash,
+            "email_column": email_column,
+            "file_rows": email_summary["file_rows"],
+            "valid_emails": email_summary["valid_emails"],
+            "invalid_emails": email_summary["invalid_emails"] + email_summary["empty_emails"],
+            "duplicate_emails": email_summary["duplicate_emails"],
+            "expected_sellers": expected_sellers,
+            "present_sellers": present_seller_count,
+            "missing_sellers": missing_seller_count,
+            "expected_contacts": expected_contact_count,
+            "present_contacts": present_contact_count,
+            "missing_contacts": missing_contact_count,
+            "unexpected_contacts": len(unexpected),
+            "seller_coverage_rate": seller_coverage,
+            "contact_coverage_rate": contact_coverage,
+            "status": "COMPLETED",
+        }
+        self.bq.insert_rows_dml(reconciliation_table, [audit])
+        logger.info(
+            "Trace send reconciliation completed: reconciliation_id=%s audience_id=%s file_rows=%d valid=%d invalid=%d",
+            reconciliation_id, audience_id, audit["file_rows"], audit["valid_emails"], audit["invalid_emails"],
+        )
+        return {
+            **audit,
+            "invalid_emails": email_summary["invalid_emails"],
+            "empty_emails": email_summary["empty_emails"],
+            "details": {
+                "missing": [row for row in expected_contacts if row["status"] == "MISSING"],
+                "present": [row for row in expected_contacts if row["status"] == "PRESENT"],
+                "unexpected": unexpected_details,
+                "duplicates": duplicate_details,
+                "invalid": invalid_details,
+                "partial_sellers": seller_partial,
+            },
+            "alerts": alerts,
+            "source": "CSV cargado manualmente",
+        }
+
+    def search_send_alert_history(self, audience_id: str | None,
+                                  page: int, page_size: int) -> dict:
+        _, _, history_table = self._send_alert_tables()
+        clauses = []
+        params = []
+        if audience_id:
+            clauses.append("audience_id = @audience_id")
+            params.append(ScalarQueryParameter("audience_id", "STRING", audience_id))
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        count_rows = self.bq.query(
+            f"SELECT COUNT(*) AS total FROM `{history_table}` {where}",
+            params=params,
+            timeout_s=30,
+        )
+        rows = self.bq.query(
+            f"""SELECT reconciliation_id, audience_id, template, uploaded_at,
+              uploaded_by, file_name, file_hash, email_column, file_rows,
+              valid_emails, invalid_emails, duplicate_emails,
+              expected_sellers, present_sellers, missing_sellers,
+              expected_contacts, present_contacts, missing_contacts,
+              unexpected_contacts, seller_coverage_rate, contact_coverage_rate, status
+            FROM `{history_table}` {where}
+            ORDER BY uploaded_at DESC LIMIT @limit OFFSET @offset""",
+            params=params + [
+                ScalarQueryParameter("limit", "INT64", page_size),
+                ScalarQueryParameter("offset", "INT64", (page - 1) * page_size),
+            ],
+            timeout_s=60,
+        )
+        return {
+            "items": rows,
+            "page": page,
+            "page_size": page_size,
+            "total": count_rows[0]["total"] if count_rows else 0,
+        }
 
     def sends_detail(self, template: str, seller_id: str | None, status: str | None,
                      page: int, page_size: int, countries: list[str] | None = None,

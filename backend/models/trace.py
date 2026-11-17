@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,16 @@ class AudiencePreviewRequest(BaseModel):
 class AudienceExportRequest(AudiencePreviewRequest):
     template: str = Field(min_length=1, max_length=256)
     confirm_warnings: bool = False
+
+
+class AudienceSearchRequest(BaseModel):
+    search: str | None = Field(default=None, max_length=256)
+    created_by: str | None = Field(default=None, max_length=256)
+    created_from: date | None = None
+    created_to: date | None = None
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=50)
+    members_only: bool = True
 
 
 class TraceSendDetailQuery(BaseModel):

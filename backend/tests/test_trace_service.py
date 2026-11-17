@@ -2,7 +2,12 @@ import csv
 import io
 from datetime import date, datetime
 
-from backend.services.trace_service import TraceService, _aggregate_seller_rollups, parse_trace_input
+import pytest
+
+from backend.services.trace_service import (
+    TraceService, _aggregate_seller_rollups, inspect_send_csv, normalize_email,
+    parse_send_csv, parse_trace_input,
+)
 
 
 class TraceFakeBQ:
@@ -11,6 +16,7 @@ class TraceFakeBQ:
         self.responses = []
         self.queries = []
         self.inserts = []
+        self.dml = []
 
     def query(self, sql, params=None, timeout_s=None):
         self.queries.append((sql, params or [], timeout_s))
@@ -21,9 +27,155 @@ class TraceFakeBQ:
     def insert_rows_dml(self, table_id, rows):
         self.inserts.append((table_id, rows))
 
+    def execute_dml(self, sql, params=None):
+        self.dml.append((sql, params or []))
+        return 1
+
 
 def contact(seller, email=None, phone=None, **values):
     return {"src_id": seller, "email": email, "phone": phone, **values}
+
+
+def test_send_csv_parser_accepts_marketing_cloud_headers_and_counts_email_quality():
+    parsed = parse_send_csv(
+        "C:\\exports\\mc.csv", "text/csv; charset=utf-8",
+        b"Subscriber Key,Email Address\r\nS1, One+tag@example.com \r\nS2,one+tag@example.com\r\nS3,bad\r\nS4,\r\n",
+    )
+
+    result = inspect_send_csv(parsed, "Email Address")
+    assert parsed["file_name"] == "mc.csv"
+    assert parsed["columns"] == ["Subscriber Key", "Email Address"]
+    assert parsed["email_column_candidates"] == ["Subscriber Key", "Email Address"]
+    assert parsed["preferred_email_column"] == "Email Address"
+    assert result["file_rows"] == 4
+    assert result["valid_emails"] == 2
+    assert result["distinct_valid_emails"] == 1
+    assert result["duplicate_emails"] == 1
+    assert result["invalid_emails"] == 1
+    assert result["empty_emails"] == 1
+    assert result["emails"] == ["one+tag@example.com", "one+tag@example.com"]
+    assert normalize_email("  A+B@Example.com ") == "a+b@example.com"
+
+
+def test_send_csv_parser_rejects_bad_extension_mime_size_encoding_and_binary():
+    invalid_files = [
+        ("mc.xlsx", "text/csv", b"Email Address\na@example.com", 1024),
+        ("mc.csv", "application/json", b"Email Address\na@example.com", 1024),
+        ("mc.csv", "text/csv", b"Email Address\na@example.com", 4),
+        ("mc.csv", "text/csv", b"Email Address\n\xff", 1024),
+        ("mc.csv", "text/csv", b"Email Address\n\x00", 1024),
+    ]
+    for file_name, content_type, content, max_bytes in invalid_files:
+        try:
+            parse_send_csv(file_name, content_type, content, max_bytes)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("El archivo CSV inválido debía rechazarse")
+
+
+def test_send_csv_parser_requires_header_and_consistent_column_count():
+    for content in [b"", b"\r\n", b"Email,Country\na@example.com"]:
+        try:
+            parse_send_csv("mc.csv", "text/csv", content)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("El CSV inválido debía rechazarse")
+
+
+def test_send_alert_reconciliation_conciles_contacts_sellers_and_persists_aggregates_only():
+    bq = TraceFakeBQ()
+    bq.responses = [
+        [{"audience_id": "A1", "template": "campaign", "created_by": "creator",
+          "member_sellers": 3, "member_contacts": 4, "final_sellers": 3, "final_contacts": 4}],
+        [],
+        [
+            {"seller_id": "S1", "email": "one@example.com", "email_normalized": "one@example.com", "row_id": "r1"},
+            {"seller_id": "S1", "email": "two@example.com", "email_normalized": "two@example.com", "row_id": "r2"},
+            {"seller_id": "S2", "email": "three@example.com", "email_normalized": "three@example.com", "row_id": "r3"},
+            {"seller_id": "S3", "email": None, "email_normalized": None, "row_id": "r4"},
+        ],
+    ]
+    service = TraceService(
+        bq, audit_table_id="project.dataset.trace_audience_history",
+        reconciliation_table_id="project.dataset.trace_send_reconciliation_history",
+    )
+    content = (
+        b"Email Address\r\none@example.com\r\none@example.com\r\n"
+        b"extra@example.com\r\nbad\r\n\r\n"
+    )
+
+    result = service.reconcile_send_csv(
+        "A1", "mc.csv", "text/csv", content, "Email Address", "operator@example.com",
+    )
+
+    assert result["expected_sellers"] == 3
+    assert result["present_sellers"] == 1
+    assert result["missing_sellers"] == 2
+    assert result["expected_contacts"] == 4
+    assert result["present_contacts"] == 1
+    assert result["missing_contacts"] == 3
+    assert result["unexpected_contacts"] == 1
+    assert result["valid_emails"] == 3
+    assert result["invalid_emails"] == 1
+    assert result["empty_emails"] == 1
+    assert result["duplicate_emails"] == 1
+    assert result["details"]["partial_sellers"][0]["seller_id"] == "S1"
+    assert result["details"]["duplicates"][0]["email"] == "one@example.com"
+    assert any(alert["severity"] == "critical" for alert in result["alerts"])
+    table_id, stored_rows = bq.inserts[0]
+    assert table_id == "project.dataset.trace_send_reconciliation_history"
+    assert len(stored_rows) == 1
+    assert stored_rows[0]["audience_id"] == "A1"
+    assert stored_rows[0]["uploaded_by"] == "operator@example.com"
+    assert "one@example.com" not in str(stored_rows[0])
+    assert "extra@example.com" not in str(stored_rows[0])
+
+
+def test_send_alert_repeat_upload_requires_confirmation_before_persisting():
+    bq = TraceFakeBQ()
+    bq.responses = [
+        [{"audience_id": "A1", "template": "campaign", "created_by": "creator",
+          "member_sellers": 1, "member_contacts": 1, "final_sellers": 1, "final_contacts": 1}],
+        [{"reconciliation_id": "R1"}],
+    ]
+    service = TraceService(
+        bq, audit_table_id="project.dataset.trace_audience_history",
+        reconciliation_table_id="project.dataset.trace_send_reconciliation_history",
+    )
+
+    try:
+        service.reconcile_send_csv(
+            "A1", "mc.csv", "text/csv", b"Email Address\na@example.com\n",
+            "Email Address", "operator@example.com",
+        )
+    except PermissionError as error:
+        assert "Confirma la repetición" in str(error)
+    else:
+        raise AssertionError("La repetición debía requerir confirmación")
+    assert bq.inserts == []
+
+
+def test_send_alert_validation_returns_quality_metadata_without_email_values():
+    bq = TraceFakeBQ()
+    bq.responses = [
+        [{"audience_id": "A1", "template": "campaign", "member_sellers": 1, "member_contacts": 1}],
+        [],
+    ]
+    service = TraceService(
+        bq, audit_table_id="project.dataset.trace_audience_history",
+        reconciliation_table_id="project.dataset.trace_send_reconciliation_history",
+    )
+
+    result = service.validate_send_csv(
+        "A1", "mc.csv", "text/csv", b"Email Address\nprivate@example.com\n", "Email Address",
+    )
+
+    assert result["columns"] == ["Email Address"]
+    assert result["email_quality"]["valid_emails"] == 1
+    assert result["previous_reconciliation_id"] is None
+    assert "private@example.com" not in str(result)
 
 
 def test_history_table_configuration_errors_are_actionable():
@@ -94,7 +246,10 @@ def test_export_writes_exact_csv_header_and_audit_without_identifiers():
     assert rows[1] == ["one,quoted@example.com", "S1", "123"]
     assert filename.endswith(".csv")
     assert preview["result"]["final_contacts"] == 1
-    table_id, audit_rows = bq.inserts[0]
+    table_id, audit_rows = next(
+        (table_id, rows) for table_id, rows in bq.inserts
+        if table_id == "project.dataset.trace_audience_history"
+    )
     assert table_id == "project.dataset.trace_audience_history"
     assert audit_rows[0]["created_by"] == "user@example.com"
     assert audit_rows[0]["template"] == "campaign-01"
@@ -102,6 +257,102 @@ def test_export_writes_exact_csv_header_and_audit_without_identifiers():
     assert isinstance(audit_rows[0]["created_date"], date)
     assert "S1" not in str(audit_rows[0])
     assert "one,quoted@example.com" not in str(audit_rows[0])
+    members_table, member_rows = next(
+        (table_id, rows) for table_id, rows in bq.inserts
+        if table_id == "bi-fcom-drmb-sell-in-sbx.crm_sellers.trace_audience_members"
+    )
+    assert members_table == "bi-fcom-drmb-sell-in-sbx.crm_sellers.trace_audience_members"
+    assert len(member_rows) == 1
+    assert member_rows[0]["audience_id"] == audit_rows[0]["audience_id"]
+    assert member_rows[0]["email"] == rows[1][0]
+    assert member_rows[0]["seller_id"] == rows[1][1]
+    assert member_rows[0]["phone"] == rows[1][2]
+    assert member_rows[0]["email_normalized"] == "one,quoted@example.com"
+    assert member_rows[0]["row_id"]
+    assert len(bq.queries) == 1
+    assert bq.inserts[1] == ("project.dataset.trace_audience_history", audit_rows)
+
+
+def test_export_cleans_up_members_when_audience_history_insert_fails():
+    class FailingAuditBQ(TraceFakeBQ):
+        def insert_rows_dml(self, table_id, rows):
+            if table_id.endswith("trace_audience_history"):
+                raise RuntimeError("audit unavailable")
+            super().insert_rows_dml(table_id, rows)
+
+    bq = FailingAuditBQ()
+    service = TraceService(
+        bq,
+        audit_table_id="project.dataset.trace_audience_history",
+        members_table_id="project.dataset.trace_audience_members",
+    )
+    service._fetch_contacts = lambda identifiers, search_type: [contact("S1", "one@example.com")]
+    service.preview = lambda *args, **kwargs: {
+        "reconciliation_ok": True,
+        "result": {"final_contacts": 1, "eligible_sellers": 1},
+        "alerts": [],
+        "input": {"valid_unique": 1},
+        "matching": {"found_sellers": 1},
+        "stages": [],
+    }
+
+    with pytest.raises(RuntimeError, match="No se pudo registrar"):
+        service.export("S1", "seller_id", {}, "campaign", False, "user@example.com")
+
+    assert len(bq.inserts) == 1
+    assert bq.inserts[0][0].endswith("trace_audience_members")
+    assert "DELETE FROM `project.dataset.trace_audience_members`" in bq.dml[0][0]
+    assert bq.dml[0][1][0].value == bq.inserts[0][1][0]["audience_id"]
+
+
+def test_audience_send_summary_uses_member_sellers_and_historical_statuses():
+        bq = TraceFakeBQ()
+        bq.responses = [
+                [{"audience_id": "A1", "template": "campaign", "member_sellers": 2,
+                    "member_contacts": 3, "final_sellers": 2, "final_contacts": 3}],
+                [{"expected_sellers": 2, "sellers_sent_from_audience": 1,
+                    "sellers_with_open_from_audience": 1, "sellers_with_click_from_audience": 0,
+                    "sellers_missing_from_history": 1, "sellers_sent_outside_audience": 1}],
+        ]
+        service = TraceService(bq, audit_table_id="project.dataset.trace_audience_history")
+
+        result = service._audience_send_summary("campaign", "A1", None, None, None, None, None)
+
+        assert result["expected_sellers"] == 2
+        assert result["sellers_sent_from_audience"] == 1
+        assert result["sellers_missing_from_history"] == 1
+        assert result["sellers_sent_outside_audience"] == 1
+        assert result["send_rate"] == 0.5
+        assert bq.queries[0][1][0].value == "A1"
+        assert any(param.name == "seller_id" and param.value is None for param in bq.queries[1][1])
+
+
+def test_search_audiences_is_paginated_and_only_returns_saved_members():
+        bq = TraceFakeBQ()
+        bq.responses = [[{"total": 1}], [{"audience_id": "A1", "member_sellers": 2}]]
+
+        result = TraceService(
+                bq, audit_table_id="project.dataset.trace_audience_history",
+        ).search_audiences("campaign", "user@example.com", None, None, 2, 20)
+
+        assert result["total"] == 1
+        assert result["page"] == 2
+        assert "EXISTS" in bq.queries[0][0]
+        assert "LIMIT @limit OFFSET @offset" in bq.queries[1][0]
+        assert [param.value for param in bq.queries[0][1]] == ["campaign", "user@example.com"]
+
+
+def test_search_audiences_can_include_legacy_rows_without_member_snapshots():
+    bq = TraceFakeBQ()
+    bq.responses = [[{"total": 1}], [{"audience_id": "A1", "has_members": False}]]
+
+    result = TraceService(
+        bq, audit_table_id="project.dataset.trace_audience_history",
+    ).search_audiences(None, None, None, None, 1, 20, members_only=False)
+
+    assert result["items"][0]["has_members"] is False
+    assert "LEFT JOIN" in bq.queries[1][0]
+    assert "EXISTS" not in bq.queries[0][0]
 
 
 def test_download_requires_explicit_confirmation_for_large_missing_share():

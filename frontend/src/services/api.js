@@ -11,6 +11,26 @@
 
 const BASE = '';  // mismo origen en todos los entornos
 
+function formatErrorDetail(detail, fallback) {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.map(item => {
+      if (typeof item === 'string') return item;
+      if (!item || typeof item !== 'object') return String(item ?? '');
+      const location = Array.isArray(item.loc)
+        ? item.loc.filter(part => part !== 'body').join('.')
+        : '';
+      const message = typeof item.msg === 'string' ? item.msg : item.message;
+      return [location, typeof message === 'string' ? message : ''].filter(Boolean).join(': ');
+    }).filter(Boolean);
+    return messages.join('; ') || fallback;
+  }
+  if (detail && typeof detail === 'object') {
+    return typeof detail.message === 'string' ? detail.message : fallback;
+  }
+  return fallback;
+}
+
 async function request(method, path, params = null, body = null) {
   let url = `${BASE}${path}`;
 
@@ -41,7 +61,7 @@ async function request(method, path, params = null, body = null) {
     let errorDetail = `${response.status} ${response.statusText}`;
     try {
       const err = await response.json();
-      errorDetail = err.detail ?? errorDetail;
+      errorDetail = formatErrorDetail(err.detail, errorDetail);
     } catch {
       // respuesta no-JSON — mantener mensaje HTTP
     }
@@ -114,7 +134,7 @@ export async function exportEnriched(filters) {
   const response = await fetch(`/api/pitch/dashboard/export?${qs}`);
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
-    try { detail = (await response.json()).detail ?? detail; } catch { /* no-JSON */ }
+    try { detail = formatErrorDetail((await response.json()).detail, detail); } catch { /* no-JSON */ }
     throw new Error(detail);
   }
 
@@ -148,7 +168,7 @@ export async function generarDiagnostico(filters) {
   });
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
-    try { detail = (await response.json()).detail ?? detail; } catch { /* no-JSON */ }
+    try { detail = formatErrorDetail((await response.json()).detail, detail); } catch { /* no-JSON */ }
     throw new Error(detail);
   }
   const blob = await response.blob();
@@ -313,7 +333,7 @@ export async function exportTraceAudience(body) {
   });
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
-    try { detail = (await response.json()).detail ?? detail; } catch { /* no-JSON */ }
+    try { detail = formatErrorDetail((await response.json()).detail, detail); } catch { /* no-JSON */ }
     throw new Error(detail);
   }
   const filename = (response.headers.get('Content-Disposition') ?? '')
@@ -338,7 +358,7 @@ export async function exportTraceSendDetail(params) {
   const response = await fetch(`/api/trace/sends/export?${query}`);
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
-    try { detail = (await response.json()).detail ?? detail; } catch { /* no-JSON */ }
+    try { detail = formatErrorDetail((await response.json()).detail, detail); } catch { /* no-JSON */ }
     throw new Error(detail);
   }
   const filename = (response.headers.get('Content-Disposition') ?? '')
@@ -348,6 +368,47 @@ export async function exportTraceSendDetail(params) {
 
 export function getTraceAudienceHistory(params) {
   return api.get('/api/trace/audiences/history', params);
+}
+
+export function getTraceAudiences(params) {
+  const body = Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined),
+  );
+  return api.post('/api/trace/audiences/search', body);
+}
+
+async function uploadTraceSendAlert(path, file, audienceId, emailColumn, extraParams = {}) {
+  const query = new URLSearchParams({ audience_id: audienceId, ...extraParams });
+  const headers = {
+    'Content-Type': file.type || 'text/csv',
+    'X-Upload-Filename': encodeURIComponent(file.name),
+  };
+  if (emailColumn) headers['X-Email-Column'] = emailColumn;
+  const response = await fetch(`/api/trace/send-alerts/${path}?${query}`, {
+    method: 'POST', headers, body: file,
+  });
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try { detail = formatErrorDetail((await response.json()).detail, detail); } catch { /* no-JSON */ }
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+}
+
+export function validateTraceSendCsv(file, audienceId, emailColumn) {
+  return uploadTraceSendAlert('validate', file, audienceId, emailColumn);
+}
+
+export function reconcileTraceSendCsv(file, audienceId, emailColumn, allowDuplicate = false) {
+  return uploadTraceSendAlert('reconcile', file, audienceId, emailColumn, {
+    allow_duplicate: String(allowDuplicate),
+  });
+}
+
+export function getTraceSendAlertHistory(params) {
+  return api.get('/api/trace/send-alerts/history', params);
 }
 
 export function getTraceDailyVolume() {

@@ -5,8 +5,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-  CartesianGrid, Tooltip, Cell, LabelList,
-  FunnelChart, Funnel, ResponsiveContainer,
+  CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import ChartCard from '../reporteria/ChartCard.jsx';
 import {
@@ -124,17 +123,6 @@ function ContactTypeDistribution({ data }) {
   );
 }
 
-function ImpactFunnelLabel({ x, y, value, payload }) {
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-  const labelX = x + 8;
-  return (
-    <text x={labelX} y={y - 7} fill="#283618" fontFamily="var(--font-body)" fontSize="11">
-      <tspan x={labelX} fontWeight="600">{payload?.name}</tspan>
-      <tspan x={labelX} dy="14" fill="#606C38" fontWeight="700">{fmt(value)} sellers</tspan>
-    </text>
-  );
-}
-
 function CompositionChart({ rows, options, dimension, title }) {
   const data = useMemo(() => buildAudienceBreakdown(rows, dimension).map(item => ({
     ...item, name: categoryLabel(options, dimension, item.value),
@@ -160,40 +148,31 @@ function CompositionChart({ rows, options, dimension, title }) {
 
 function ImpactChart({ funnel, metrics, inputUnique }) {
   const data = useMemo(() => buildImpactFunnel(inputUnique, metrics, funnel.stages), [inputUnique, metrics, funnel]);
-  const colors = [
-    'var(--trace-chart-amber)', 'var(--trace-chart-dark)', 'var(--trace-chart-olive)',
-    'var(--trace-chart-yellow)', 'var(--trace-chart-cream)',
-  ];
+  const colors = ['var(--trace-chart-olive)', 'var(--trace-chart-amber)', 'var(--trace-chart-dark)', 'var(--trace-chart-yellow)'];
 
   return (
     <ChartCard title="Impacto de filtros y exclusiones" subtitle="Reducción secuencial desde los Seller IDs únicos ingresados">
       {!data.length ? <EmptyChart>Ingresa IDs únicos válidos para ver el embudo.</EmptyChart> : (
-        <div className="trace-impact-funnel">
+        <div className="trace-impact-funnel" role="list" aria-label="Etapas de reducción de la audiencia">
           {data.length === 1 && <p className="trace-funnel-note">No hubo reducciones; todos los IDs quedaron elegibles.</p>}
-          <ResponsiveContainer width="100%" height={Math.max(170, data.length * 52)}>
-            <FunnelChart margin={{ top: 8, right: 145, bottom: 8, left: 0 }}>
-              <Tooltip
-                content={props => (
-                  <ChartTooltip {...props}>
-                    {row => (
-                      <>
-                        <div style={{ fontWeight: 'var(--font-weight-bold)', marginBottom: 6 }}>{row.name}</div>
-                        <div>Quedan: {fmt(row.remaining)} sellers</div>
-                        <div>Reducción: {fmt(row.reduction)} sellers ({pct(row.reductionPercent)})</div>
-                        <div>Del total inicial: {pct(row.remainingPercent)}</div>
-                      </>
-                    )}
-                  </ChartTooltip>
-                )}
-              />
-              <Funnel dataKey="remaining" data={data} isAnimationActive={false}>
-                {data.map((item, index) => <Cell key={item.key} fill={colors[index % colors.length]} />)}
-                <LabelList
-                  dataKey="remaining" position="right" content={<ImpactFunnelLabel />}
-                />
-              </Funnel>
-            </FunnelChart>
-          </ResponsiveContainer>
+          {data.map((stage, index) => <div className="trace-impact-step" role="listitem" key={stage.key}>
+            {index > 0 && <span className="trace-impact-arrow" aria-hidden="true">↓</span>}
+            <div className="trace-impact-stage-heading">
+              <span className="trace-impact-stage-index">{String(index + 1).padStart(2, '0')}</span>
+              <strong>{stage.name}</strong>
+              <span>{fmt(stage.remaining)} sellers</span>
+            </div>
+            <div className="trace-impact-stage-track" role="img" aria-label={`${stage.name}: ${fmt(stage.remaining)} sellers, ${pct(stage.remainingPercent)} del universo inicial`}>
+              <span style={{
+                width: `${stage.remaining ? Math.max(stage.remainingPercent, 1) : 0}%`,
+                background: colors[index % colors.length],
+              }} />
+            </div>
+            <div className="trace-impact-stage-meta">
+              <span>{pct(stage.remainingPercent)} del universo inicial</span>
+              {stage.reduction > 0 && <span>−{fmt(stage.reduction)} desde la etapa anterior ({pct(stage.reductionPercent)})</span>}
+            </div>
+          </div>)}
         </div>
       )}
     </ChartCard>
@@ -202,7 +181,7 @@ function ImpactChart({ funnel, metrics, inputUnique }) {
 
 function EligibilityChart({ metrics, notFound, inputUnique }) {
   const breakdown = buildEligibilityBreakdown(metrics, notFound, inputUnique);
-  const radius = 86;
+  const radius = 96;
   const arcLength = Math.PI * radius;
   const progress = (breakdown.pctEligible / 100) * arcLength;
 
@@ -210,19 +189,22 @@ function EligibilityChart({ metrics, notFound, inputUnique }) {
     <ChartCard title="Elegibles del universo ingresado" subtitle={`${fmt(breakdown.total)} IDs únicos válidos = 100%`}>
       {!breakdown.total ? <EmptyChart>Sin IDs únicos válidos para calcular la proporción.</EmptyChart> : (
         <div className="trace-eligibility-gauge">
-          <svg className="trace-gauge" viewBox="0 0 220 132" role="img"
+          <svg className="trace-gauge" viewBox="0 0 240 164" role="img"
             aria-label={`${fmt(breakdown.eligible)} de ${fmt(breakdown.total)} sellers elegibles, ${pct(breakdown.pctEligible)}`}>
-            <path className="trace-gauge-track" d="M 24 118 A 86 86 0 0 1 196 118" />
-            <path className="trace-gauge-value" d="M 24 118 A 86 86 0 0 1 196 118"
+            <path className="trace-gauge-track" d="M 24 128 A 96 96 0 0 1 216 128" />
+            <path className="trace-gauge-value" d="M 24 128 A 96 96 0 0 1 216 128"
               style={{ strokeDasharray: `${progress} ${arcLength}` }} />
-            <text className="trace-gauge-number" x="110" y="84" textAnchor="middle">{fmt(breakdown.eligible)}</text>
-            <text className="trace-gauge-percent" x="110" y="106" textAnchor="middle">{pct(breakdown.pctEligible)}</text>
+            <text className="trace-gauge-number" x="120" y="83" textAnchor="middle">{fmt(breakdown.eligible)}</text>
+            <text className="trace-gauge-percent" x="120" y="107" textAnchor="middle">{pct(breakdown.pctEligible)}</text>
+            <text className="trace-gauge-end" x="20" y="151" textAnchor="start">0</text>
+            <text className="trace-gauge-end" x="220" y="151" textAnchor="end">100%</text>
           </svg>
           <strong className="trace-gauge-caption">Sellers elegibles</strong>
+          <p className="trace-gauge-total">De <strong>{fmt(breakdown.total)}</strong> IDs únicos válidos ingresados</p>
           <div className="trace-gauge-breakdown">
-            <span>No encontrados: <strong>{fmt(breakdown.notFound)}</strong></span>
-            <span>Excluidos por filtros: <strong>{fmt(breakdown.excludedByFilters)}</strong></span>
-            <span>Sin contacto (informativo): <strong>{fmt(breakdown.sellersWithoutContact)}</strong></span>
+            <span><i className="trace-gauge-key trace-gauge-key--missing" />No encontrados <strong>{fmt(breakdown.notFound)}</strong></span>
+            <span><i className="trace-gauge-key trace-gauge-key--excluded" />Excluidos por filtros <strong>{fmt(breakdown.excludedByFilters)}</strong></span>
+            <span><i className="trace-gauge-key trace-gauge-key--contact" />Sin contacto (informativo) <strong>{fmt(breakdown.sellersWithoutContact)}</strong></span>
           </div>
         </div>
       )}
