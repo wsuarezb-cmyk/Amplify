@@ -15,7 +15,7 @@ mensaje claro en vez de colgar el login.
 import logging
 import time
 
-from google.cloud.bigquery import ScalarQueryParameter
+from google.cloud.bigquery import ArrayQueryParameter, ScalarQueryParameter
 
 from backend.connectors.bigquery_connector import BigQueryConnector
 from backend.models.auth import UserContext
@@ -81,3 +81,20 @@ def get_user_by_email(bq: BigQueryConnector, email: str) -> UserContext | None:
     _cache[email] = (user, time.monotonic() + _CACHE_TTL_S)
     logger.debug("Usuario encontrado: %s (rol: %s)", user.email, user.role)
     return user
+
+
+def get_display_names_by_email(bq: BigQueryConnector, emails: list[str]) -> dict[str, str]:
+    normalized = list(dict.fromkeys(email.strip().lower() for email in emails if email.strip()))
+    if not normalized:
+        return {}
+    rows = bq.query(
+        f"""SELECT LOWER(email) AS normalized_email, full_name
+        FROM `{bq.full_table_id("pitch_users")}`
+        WHERE LOWER(email) IN UNNEST(@emails) AND is_active = TRUE""",
+        params=[ArrayQueryParameter("emails", "STRING", normalized)],
+        timeout_s=_QUERY_TIMEOUT_S,
+    )
+    return {
+        row["normalized_email"]: row["full_name"]
+        for row in rows if row.get("normalized_email") and row.get("full_name")
+    }

@@ -865,6 +865,20 @@ class TraceService:
             self._checked_table_id(self.reconciliation_table_id, "TRACE_SEND_RECONCILIATION_HISTORY_TABLE"),
         )
 
+    def get_send_reconciliation(self, reconciliation_id: str) -> dict | None:
+        _, _, reconciliation_table = self._send_alert_tables()
+        rows = self.bq.query(
+            f"""SELECT reconciliation_id, audience_id, template, uploaded_at, uploaded_by,
+              expected_sellers, present_sellers, missing_sellers, seller_coverage_rate,
+              expected_contacts, present_contacts, missing_contacts, status
+            FROM `{reconciliation_table}`
+            WHERE reconciliation_id = @reconciliation_id
+            LIMIT 1""",
+            params=[ScalarQueryParameter("reconciliation_id", "STRING", reconciliation_id)],
+            timeout_s=30,
+        )
+        return rows[0] if rows else None
+
     def _send_alert_audience_summary(self, audience_id: str) -> dict:
         history_table, members_table, _ = self._send_alert_tables()
         rows = self.bq.query(

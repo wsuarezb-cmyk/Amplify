@@ -407,8 +407,11 @@ export function reconcileTraceSendCsv(file, audienceId, emailColumn, allowDuplic
   });
 }
 
-export function getTraceSendAlertHistory(params) {
-  return api.get('/api/trace/send-alerts/history', params);
+export function sendTraceTeamsNotification(reconciliationId, recipients) {
+  return api.post(
+    `/api/trace/send-alerts/${encodeURIComponent(reconciliationId)}/notify-teams`,
+    { recipients },
+  );
 }
 
 export function getTraceDailyVolume() {

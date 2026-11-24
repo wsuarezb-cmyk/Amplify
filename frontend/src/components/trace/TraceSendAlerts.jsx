@@ -3,10 +3,14 @@ import {
   ArrowDownloadRegular, ArrowTrendingRegular, CheckmarkCircleRegular,
   DismissCircleRegular, EyeRegular, PersonRegular,
 } from '@fluentui/react-icons';
-import { getTraceAudiences, getTraceSendAlertHistory, reconcileTraceSendCsv, validateTraceSendCsv } from '../../services/api.js';
+import {
+  getTraceAudiences, reconcileTraceSendCsv, sendTraceTeamsNotification, validateTraceSendCsv,
+} from '../../services/api.js';
+import { addTraceAlertRecipients } from '../../utils/traceSendAlerts.js';
 import { Metric, number } from './traceCommon.jsx';
 
 const PAGE_SIZE = 50;
+const MAX_RECIPIENTS = 20;
 const DETAIL_TABS = [
   ['missing', 'Ausentes'], ['present', 'Presentes'], ['unexpected', 'No esperados'],
   ['duplicates', 'Duplicados'], ['invalid', 'Inválidos'],
@@ -50,15 +54,23 @@ export default function TraceSendAlerts() {
   const [validation, setValidation] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [allowDuplicate, setAllowDuplicate] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('missing');
   const [detailSearch, setDetailSearch] = useState('');
   const [page, setPage] = useState(1);
   const [sortAscending, setSortAscending] = useState(true);
-  const [history, setHistory] = useState(null);
-  const [historyPage, setHistoryPage] = useState(1);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [recipientDraft, setRecipientDraft] = useState('');
+  const [recipients, setRecipients] = useState([]);
+  const [recipientError, setRecipientError] = useState('');
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationFeedback, setNotificationFeedback] = useState(null);
+
+  const addRecipients = text => {
+    const result = addTraceAlertRecipients(recipients, text, MAX_RECIPIENTS);
+    setRecipients(result.recipients);
+    setRecipientError(result.error);
+    setNotificationFeedback(null);
+  };
 
   const loadAudiences = async (targetPage = 1) => {
     setLoadingAudiences(true);
@@ -82,21 +94,22 @@ export default function TraceSendAlerts() {
     setEmailColumn('');
     setValidation(null);
     setResult(null);
-    setAllowDuplicate(false);
-    setHistory(null);
-    setHistoryPage(1);
+    setRecipients([]);
+    setRecipientDraft('');
+    setRecipientError('');
+    setNotificationFeedback(null);
   };
 
   const validateFile = async () => {
     if (!audience || !selectedFile) return;
     setLoading(true);
     setError('');
+    setNotificationFeedback(null);
     setResult(null);
     try {
       const validated = await validateTraceSendCsv(selectedFile, audience.audience_id, emailColumn);
       setValidation(validated);
       if (!emailColumn && validated.preferred_email_column) setEmailColumn(validated.preferred_email_column);
-      setAllowDuplicate(false);
     } catch (reason) {
       setValidation(null);
       setError(reason.message);
@@ -105,13 +118,34 @@ export default function TraceSendAlerts() {
     }
   };
 
+  const sendNotification = async () => {
+    if (!result || !recipients.length || recipientError || notificationLoading) return;
+    setNotificationLoading(true);
+    setNotificationFeedback(null);
+    try {
+      const response = await sendTraceTeamsNotification(
+        result.reconciliation_id,
+        recipients.map(email => email.trim().toLowerCase()),
+      );
+      setNotificationFeedback({
+        type: 'success',
+        message: `Power Automate aceptó la solicitud. Confirma la publicación en Teams. Referencia: ${response.request_id}`,
+      });
+    } catch (reason) {
+      setNotificationFeedback({ type: 'error', message: reason.message || 'No fue posible enviar la notificación. Intenta nuevamente.' });
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
   const reconcile = async () => {
     if (!audience || !selectedFile || !emailColumn || !validation?.email_quality) return;
     setLoading(true);
     setError('');
+    setNotificationFeedback(null);
     try {
       setResult(await reconcileTraceSendCsv(
-        selectedFile, audience.audience_id, emailColumn, allowDuplicate,
+        selectedFile, audience.audience_id, emailColumn, true,
       ));
       setActiveTab('missing');
       setPage(1);
@@ -120,21 +154,6 @@ export default function TraceSendAlerts() {
       setError(reason.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadHistory = async (targetPage = 1) => {
-    setLoadingHistory(true);
-    setError('');
-    try {
-      setHistory(await getTraceSendAlertHistory({
-        audience_id: audience?.audience_id, page: targetPage, page_size: 25,
-      }));
-      setHistoryPage(targetPage);
-    } catch (reason) {
-      setError(reason.message);
-    } finally {
-      setLoadingHistory(false);
     }
   };
 
@@ -196,7 +215,8 @@ export default function TraceSendAlerts() {
       <div className="trace-alert-upload-row">
         <label className="trace-field"><span>Archivo CSV</span><input type="file" accept=".csv,text/csv" onChange={event => {
           setSelectedFile(event.target.files?.[0] ?? null);
-          setEmailColumn(''); setValidation(null); setResult(null); setAllowDuplicate(false);
+          setEmailColumn(''); setValidation(null); setResult(null);
+          setRecipients([]); setRecipientDraft(''); setRecipientError(''); setNotificationFeedback(null);
         }} disabled={!audience || !audience.has_members} /></label>
         <button className="trace-button trace-button--primary" type="button" onClick={validateFile}
           disabled={loading || !audience?.has_members || !selectedFile}>{loading ? 'Validando…' : 'Validar archivo'}</button>
@@ -221,12 +241,8 @@ export default function TraceSendAlerts() {
           <span>Vacíos: {number(validation.email_quality.empty_emails)}</span>
           <span>Duplicados: {number(validation.email_quality.duplicate_emails)}</span>
         </div>}
-        {validation.previous_reconciliation_id && <label className="trace-alert-repeat-confirm">
-          <input type="checkbox" checked={allowDuplicate} onChange={event => setAllowDuplicate(event.target.checked)} />
-          Este archivo ya se concilió como {validation.previous_reconciliation_id}. Confirmo repetir la carga.
-        </label>}
         <button className="trace-button trace-button--primary" type="button" onClick={reconcile}
-          disabled={loading || !validation.email_quality || !emailColumn || (validation.previous_reconciliation_id && !allowDuplicate)}>
+          disabled={loading || !validation.email_quality || !emailColumn}>
           {loading ? 'Conciliando…' : 'Conciliar archivo'}
         </button>
       </>}
@@ -247,6 +263,66 @@ export default function TraceSendAlerts() {
       <div className="trace-alert-bars">
         <CoverageBar label="Cobertura de sellers" present={result.present_sellers} expected={result.expected_sellers} />
         <CoverageBar label="Cobertura de contactos" present={result.present_contacts} expected={result.expected_contacts} />
+      </div>
+      <div className="trace-alert-notify" aria-label="Notificación por Teams">
+        <label className="trace-field" htmlFor="trace-teams-recipients">
+          <span>Destinatarios</span>
+          <input
+            id="trace-teams-recipients"
+            type="text"
+            inputMode="email"
+            maxLength={254}
+            value={recipientDraft}
+            onChange={event => {
+              const value = event.target.value;
+              const parts = value.split(/[,;]/u);
+              if (parts.length > 1) {
+                addRecipients(parts.slice(0, -1).join(','));
+                setRecipientDraft(parts.at(-1));
+              } else {
+                setRecipientDraft(value);
+              }
+            }}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
+                event.preventDefault();
+                addRecipients(recipientDraft);
+                setRecipientDraft('');
+              }
+            }}
+            onPaste={event => {
+              const pasted = event.clipboardData.getData('text');
+              if (/[,;\n]/u.test(pasted)) {
+                event.preventDefault();
+                addRecipients(pasted);
+                setRecipientDraft('');
+              }
+            }}
+            placeholder="correo@empresa.com"
+            aria-describedby="trace-teams-recipient-help"
+          />
+        </label>
+        <p id="trace-teams-recipient-help" className="trace-alert-help">Agrega cada correo con Enter, coma o punto y coma. Máximo {MAX_RECIPIENTS} destinatarios.</p>
+        {recipients.length > 0 && <div className="trace-alert-recipient-list" aria-label="Destinatarios agregados">
+          {recipients.map(email => <span className="trace-alert-recipient" key={email.toLowerCase()}>
+            {email}
+            <button type="button" aria-label={`Quitar ${email}`} onClick={() => {
+              setRecipients(current => current.filter(value => value.toLowerCase() !== email.toLowerCase()));
+              setRecipientError('');
+              setNotificationFeedback(null);
+            }}>×</button>
+          </span>)}
+        </div>}
+        {recipientError && <p className="trace-error" role="alert">{recipientError}</p>}
+        <button
+          className="trace-button trace-button--primary"
+          type="button"
+          onClick={sendNotification}
+          disabled={notificationLoading || recipients.length === 0 || Boolean(recipientDraft.trim()) || Boolean(recipientError)}
+        >{notificationLoading ? 'Enviando…' : 'Enviar mensaje'}</button>
+        {notificationFeedback && <p className={notificationFeedback.type === 'success' ? 'trace-alert-notify-success' : 'trace-error'} role={notificationFeedback.type === 'error' ? 'alert' : 'status'}>
+          {notificationFeedback.message}
+        </p>}
       </div>
       <div className="trace-alert-message-list" aria-live="polite">{result.alerts.map((alert, index) => <p className={`trace-alert-message trace-alert-message--${alert.severity}`} key={`${alert.severity}-${index}`}>{alert.message}</p>)}</div>
       <p className="trace-alert-quality">Archivo · {number(result.file_rows)} filas · {number(result.valid_emails)} emails válidos · {number(result.invalid_emails)} inválidos · {number(result.empty_emails)} vacíos · {number(result.duplicate_emails)} duplicados · {number(result.unexpected_contacts)} extras</p>
@@ -273,18 +349,6 @@ export default function TraceSendAlerts() {
         <button className="trace-button trace-button--quiet" onClick={() => setPage(current => current - 1)} disabled={page <= 1}>Anterior</button>
         <button className="trace-button trace-button--quiet" onClick={() => setPage(current => current + 1)} disabled={page * PAGE_SIZE >= filteredRows.length}>Siguiente</button>
       </div></div>
-      <div className="trace-alert-history-heading"><h3>Historial de conciliaciones</h3><button className="trace-button trace-button--quiet" onClick={loadHistory} disabled={loadingHistory}>{loadingHistory ? 'Cargando…' : 'Ver historial agregado'}</button></div>
-      {history && <>
-        <div className="trace-table-wrap"><table className="trace-table"><thead><tr><th>Fecha</th><th>Archivo</th><th>Resultado</th><th>Emails</th><th>Estado</th></tr></thead><tbody>
-          {history.items.map(item => <tr key={item.reconciliation_id}><td>{formatDate(item.uploaded_at)}</td><td>{item.file_name}</td>
-            <td>{number(item.present_sellers)}/{number(item.expected_sellers)} sellers · {number(item.present_contacts)}/{number(item.expected_contacts)} contactos</td>
-            <td>{number(item.valid_emails)} válidos · {number(item.invalid_emails)} inválidos · {number(item.duplicate_emails)} duplicados</td><td>{item.status}</td>
-          </tr>)}</tbody></table>{!history.items.length && <p className="trace-empty">No hay conciliaciones registradas para esta audiencia.</p>}</div>
-        {history.total > history.page_size && <div className="trace-pagination"><span>{number(history.total)} conciliaciones · página {history.page}</span><div>
-          <button className="trace-button trace-button--quiet" onClick={() => loadHistory(history.page - 1)} disabled={loadingHistory || history.page <= 1}>Anterior</button>
-          <button className="trace-button trace-button--quiet" onClick={() => loadHistory(history.page + 1)} disabled={loadingHistory || history.page * history.page_size >= history.total}>Siguiente</button>
-        </div></div>}
-      </>}
     </section>}
   </div>;
 }

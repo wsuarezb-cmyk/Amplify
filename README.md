@@ -321,6 +321,47 @@ procedimiento y los permisos del responsable de infraestructura.
 - Para cambiar configuración usar `--update-env-vars` / `--update-secrets`, nunca `--set-*`,
   que borra lo existente.
 
+### Roles de Overture
+
+En producción, la autorización lee `accesos.usuarios_roles` en Cloud SQL; el usuario de DB
+solo necesita `SELECT` sobre `sx_reg_users`, `roles`, `roles_app` y `usuarios_roles`.
+El secret de Secret Manager `SQL-CREDENTIALS` se inyecta como variable `SQL_CREDENTIALS` y
+su valor debe tener formato `.env` con claves `user` y `password`. No guardes estas credenciales
+en archivos del repositorio.
+
+Antes de habilitar el cambio en `amplify-app`, infraestructura debe verificar:
+
+- `amplify` existe en `accesos.roles_app` y el usuario de runtime puede leer `SQL-CREDENTIALS`.
+- La cuenta de runtime tiene `roles/cloudsql.client` y puede conectarse a la instancia
+  `flb-rtl-3p-sx-reg-dev:us-east4:flb-rtl-3p-sx-reg-dev-db`.
+- Cloud Run está conectado a `flb-rtl-3p-sx-reg-dev-vpc` / `flb-rtl-3p-sx-reg-dev-subnet`, con
+  `private-ranges-only` y Cloud SQL instance attachment, según `instrucciones/integracion-roles.md`.
+- `OVERTURE_ROLES_APP=amplify`; el default de conexión es la base `postgres` y el socket Cloud SQL.
+
+Con aprobación del responsable de infraestructura, la configuración se aplica de forma
+incremental (no uses `--set-*`):
+
+```bash
+gcloud run services update amplify-app \
+  --project=flb-rtl-3p-sx-reg-dev \
+  --region=us-east4 \
+  --update-secrets=SQL_CREDENTIALS=SQL-CREDENTIALS:latest \
+  --update-env-vars=OVERTURE_ROLES_APP=amplify \
+  --network=flb-rtl-3p-sx-reg-dev-vpc \
+  --subnet=flb-rtl-3p-sx-reg-dev-subnet \
+  --vpc-egress=private-ranges-only \
+  --add-cloudsql-instances=flb-rtl-3p-sx-reg-dev:us-east4:flb-rtl-3p-sx-reg-dev-db
+```
+
+Mapeo de roles: `admin` → `ADMIN`, `viewer` → `VIEWER`, `operator` → `AUDITOR`. Las asignaciones
+ausentes y roles desconocidos deniegan el acceso. El rol `LIDER_QUALITY` no tiene equivalencia
+en el catálogo actual de Overture; solo `ADMIN` hereda sus permisos por jerarquía.
+
+En desarrollo local, el equipo no tiene ruta a la VPC: `DEV_AUTH_BYPASS=true` conserva la
+consulta actual a `pitch_users`. Por eso el lookup Postgres debe validarse en Cloud Run, no con
+una conexión local. La prueba de aplicación es iniciar sesión por IAP con un usuario asignado
+a `amplify`, comprobar `GET /api/auth/me` y confirmar que usuarios sin asignación reciben 403.
+
 ## Troubleshooting
 
 **1. `DefaultCredentialsError` al iniciar el backend**

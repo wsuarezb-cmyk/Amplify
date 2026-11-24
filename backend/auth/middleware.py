@@ -6,8 +6,8 @@ Modelo de DOS puertas:
      (formato: accounts.google.com:correo@falabella.com) y borra cualquier copia
      que mande el cliente. Solo es confiable porque el invoker de Cloud Run está
      bloqueado al service agent de IAP: nadie externo alcanza el contenedor.
-  2. pitch_users decide QUIÉN accede y con qué ROL — lista blanca por email exacto.
-     No se valida dominio de email en ningún punto: la tabla ya es la lista blanca.
+  2. Overture decide QUIÉN accede y con qué ROL — asignación por email y app.
+      El bypass de desarrollo conserva pitch_users; producción no lo consulta.
 
 Rutas excluidas (no requieren identidad):
   - /api/health
@@ -28,6 +28,7 @@ from starlette.responses import JSONResponse, Response
 from backend.config import get_settings
 from backend.dependencies import get_bq
 from backend.services.user_service import get_user_by_email
+from backend.services.overture_role_service import get_overture_user_by_email
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ _BYPASS_PREFIXES: tuple[str, ...] = (
 )
 
 
-def _resolve_email(request: Request) -> str | None:
+def _resolve_email(request: Request, settings=None) -> str | None:
     """
     Extrae el email del header de IAP, o del fallback de desarrollo.
     Retorna None si no hay identidad (→ 401 anónimo, nunca rol default).
@@ -58,7 +59,7 @@ def _resolve_email(request: Request) -> str | None:
         return raw.split(":")[-1].strip().lower()
 
     # Fallback SOLO desarrollo local: sin IAP no llega el header.
-    settings = get_settings()
+    settings = settings or get_settings()
     if settings.DEV_AUTH_BYPASS and settings.DEV_USER_EMAIL:
         return settings.DEV_USER_EMAIL.strip().lower()
 
@@ -68,7 +69,7 @@ def _resolve_email(request: Request) -> str | None:
 class AuthMiddleware(BaseHTTPMiddleware):
     """
     Resuelve la identidad en cada request a /api/* protegida y puebla
-    request.state.user (UserContext con el rol de pitch_users).
+    request.state.user (UserContext con el rol de Overture en producción).
 
     Se agrega ANTES del CORSMiddleware para que CORS sea la capa exterior
     y pueda agregar sus headers incluso a respuestas 401/403.
@@ -94,13 +95,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # 5. Puerta 1 — identidad (header IAP o fallback dev)
-        email = _resolve_email(request)
+        settings = get_settings()
+        has_iap_identity = bool(request.headers.get(_IAP_EMAIL_HEADER, ""))
+        email = _resolve_email(request, settings)
         if email is None:
             return JSONResponse(status_code=401, content={"detail": "No autenticado"})
 
-        # 6. Puerta 2 — autorización por email exacto en pitch_users (rol incluido)
+        # 6. Producción usa Overture; el fallback local conserva el catálogo de desarrollo.
         try:
-            user = get_user_by_email(get_bq(), email)
+            if not has_iap_identity and settings.DEV_AUTH_BYPASS:
+                user = get_user_by_email(get_bq(), email)
+            else:
+                user = get_overture_user_by_email(email)
         except Exception as exc:
             logger.error("Error resolviendo usuario (tipo=%s)", type(exc).__name__)
             return JSONResponse(
@@ -109,7 +115,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         if user is None:
-            logger.info("Acceso denegado — usuario no está en pitch_users")
+            logger.info("Acceso denegado — usuario sin rol válido en su catálogo")
             return JSONResponse(status_code=403, content={"detail": "Usuario no autorizado"})
 
         request.state.user = user

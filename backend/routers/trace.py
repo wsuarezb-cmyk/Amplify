@@ -1,5 +1,7 @@
+import logging
 from datetime import date
 from urllib.parse import unquote
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -7,10 +9,19 @@ from fastapi.responses import Response
 from backend.config import get_settings
 from backend.dependencies import get_bq, get_current_user, require_role
 from backend.models.auth import UserContext
-from backend.models.trace import AudienceExportRequest, AudiencePreviewRequest, AudienceSearchRequest
+from backend.models.trace import (
+    AudienceExportRequest, AudiencePreviewRequest, AudienceSearchRequest,
+    TraceTeamsNotifyRequest,
+)
 from backend.services.trace_service import TraceService
+from backend.services.teams_notification_service import (
+    TeamsNotificationError, normalize_recipients,
+    service_from_settings as get_teams_notification_service,
+)
+from backend.services.user_service import get_display_names_by_email
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def get_trace_service(bq=Depends(get_bq)) -> TraceService:
@@ -238,6 +249,48 @@ async def reconcile_send_alert_csv(
         )
     except Exception as exc:
         raise _http_error(exc) from exc
+
+
+@router.post("/send-alerts/{reconciliation_id}/notify-teams")
+def notify_send_reconciliation_teams(
+    reconciliation_id: UUID,
+    body: TraceTeamsNotifyRequest,
+    service: TraceService = Depends(get_trace_service),
+    user: UserContext = Depends(get_current_user),
+):
+    try:
+        reconciliation = service.get_send_reconciliation(str(reconciliation_id))
+    except Exception as exc:
+        raise _http_error(exc) from exc
+    if not reconciliation:
+        raise HTTPException(status_code=404, detail="No se encontró esa conciliación.")
+    if reconciliation.get("status") != "COMPLETED":
+        raise HTTPException(status_code=409, detail="La conciliación aún no está disponible para notificar.")
+    try:
+        settings = get_settings()
+        recipients = normalize_recipients(
+            body.recipients,
+            settings.TRACE_TEAMS_ALLOWED_EMAIL_DOMAINS,
+            settings.TRACE_TEAMS_MAX_RECIPIENTS,
+        )
+        notification_service = get_teams_notification_service(settings)
+        notification_service.validate_configuration()
+        try:
+            directory_names = get_display_names_by_email(service.bq, recipients)
+        except Exception:
+            logger.warning(
+                "Trace Teams mention name lookup failed: reconciliation_id=%s",
+                reconciliation_id,
+            )
+            directory_names = {}
+        return notification_service.notify(
+            reconciliation, recipients, user.email,
+            directory_names,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except TeamsNotificationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/send-alerts/history")

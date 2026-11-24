@@ -178,6 +178,28 @@ def test_send_alert_validation_returns_quality_metadata_without_email_values():
     assert "private@example.com" not in str(result)
 
 
+def test_get_send_reconciliation_returns_only_summary_fields_from_audit():
+    bq = TraceFakeBQ()
+    bq.responses = [[{
+        "reconciliation_id": "REC-1", "audience_id": "A1", "template": "campaign",
+        "expected_sellers": 10, "present_sellers": 8, "missing_sellers": 2,
+        "expected_contacts": 12, "present_contacts": 9, "missing_contacts": 3,
+        "seller_coverage_rate": 0.8,
+    }]]
+    service = TraceService(
+        bq, audit_table_id="project.dataset.trace_audience_history",
+        reconciliation_table_id="project.dataset.trace_send_reconciliation_history",
+    )
+
+    result = service.get_send_reconciliation("REC-1")
+
+    assert result["reconciliation_id"] == "REC-1"
+    assert result["missing_sellers"] == 2
+    assert "email" not in bq.queries[0][0].lower()
+    assert "FROM `project.dataset.trace_send_reconciliation_history`" in bq.queries[0][0]
+    assert bq.queries[0][1][0].value == "REC-1"
+
+
 def test_history_table_configuration_errors_are_actionable():
     for table_id, message in [
         ("", "Falta configurar TRACE_AUDIENCE_HISTORY_TABLE"),
