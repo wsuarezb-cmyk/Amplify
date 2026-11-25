@@ -28,7 +28,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend.auth.middleware import AuthMiddleware
 from backend.config import get_settings
 from backend.connectors.bigquery_connector import BigQueryConnector
-from backend.dependencies import require_role
+from backend.dependencies import require_role, require_trace_access
 from backend.models.schemas import HealthResponse
 from backend.routers import auth as auth_router
 from backend.routers import criteria, glosario, interaction, pitch_dashboard, pitch_calibracion, pitch_diagnostico, planner, trace
@@ -86,32 +86,35 @@ app.add_middleware(
 app.include_router(auth_router.router, prefix="/api/auth", tags=["auth"])
 app.include_router(
     pitch_dashboard.router, prefix="/api/pitch/dashboard", tags=["pitch-dashboard"],
-    dependencies=[Depends(require_role("VIEWER"))],
+        dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     pitch_calibracion.router, prefix="/api/pitch/calibracion", tags=["pitch-calibracion"],
-    dependencies=[Depends(require_role("AUDITOR"))],
+        dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     criteria.router, prefix="/api/criteria", tags=["criteria"],
-    dependencies=[Depends(require_role("AUDITOR"))],
+        dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     interaction.router, prefix="/api/interaction", tags=["interaction"],
-    dependencies=[Depends(require_role("VIEWER"))],
+        dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     glosario.router, prefix="/api/glosario", tags=["glosario"],
-    dependencies=[Depends(require_role("VIEWER"))],
+        dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     pitch_diagnostico.router, prefix="/api/pitch/diagnostico", tags=["pitch-diagnostico"],
-    dependencies=[Depends(require_role("VIEWER"))],
+        dependencies=[Depends(require_role("ADMIN"))],
 )
-app.include_router(planner.router, prefix="/api/planner", tags=["planner"])
+    app.include_router(
+        planner.router, prefix="/api/planner", tags=["planner"],
+        dependencies=[Depends(require_role("ADMIN"))],
+    )
 app.include_router(
     trace.router, prefix="/api/trace", tags=["trace"],
-    dependencies=[Depends(require_role("VIEWER"))],
+        dependencies=[Depends(require_trace_access)],
 )
 
 # ─────────────────────────────────────────────────────────────

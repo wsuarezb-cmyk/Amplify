@@ -11,7 +11,7 @@ import Glosario from './pages/Glosario.jsx';
 import Planner from './pages/Planner.jsx';
 import Trace from './pages/Trace.jsx';
 import { ROUTES } from './constants/routes.js';
-import { ROLES } from './constants/roles.js';
+import { canAccessAppModule, defaultAppRoute } from './constants/roles.js';
 
 /**
  * Gate de sesión: la identidad la garantiza IAP. Solo esperamos a resolver
@@ -39,25 +39,31 @@ function AppGate() {
     return <ServiceUnavailable />;
   }
 
+  const homeRoute = defaultAppRoute(user.role);
+
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<Navigate to={ROUTES.REPORTERIA} replace />} />
-        <Route path={ROUTES.REPORTERIA} element={<Reporteria />} />
-        <Route path={ROUTES.PLANNER} element={<Planner />} />
-        <Route path={ROUTES.TRACE} element={<Trace />} />
-        {/* Glosario — disponible para todos los roles */}
-        <Route path={ROUTES.GLOSARIO} element={<Glosario />} />
-
-        {/* Módulo de calibración — requiere rol AUDITOR o superior */}
-        <Route element={<ProtectedRoute minRole={ROLES.AUDITOR} />}>
+        <Route index element={<Navigate to={homeRoute} replace />} />
+        <Route element={<ProtectedRoute module="reporteria" />}>
+          <Route path={ROUTES.REPORTERIA} element={<Reporteria />} />
+        </Route>
+        <Route element={<ProtectedRoute module="planner" />}>
+          <Route path={ROUTES.PLANNER} element={<Planner />} />
+        </Route>
+        <Route element={<ProtectedRoute module="trace" />}>
+          <Route path={ROUTES.TRACE} element={<Trace />} />
+        </Route>
+        <Route element={<ProtectedRoute module="glosario" />}>
+          <Route path={ROUTES.GLOSARIO} element={<Glosario />} />
+        </Route>
+        <Route element={<ProtectedRoute module="calibracion" />}>
           <Route path={ROUTES.CALIBRACION} element={<Calibracion />} />
           <Route path={ROUTES.CALIBRACION_CASO} element={<CalibracionCaso />} />
         </Route>
       </Route>
 
-      {/* Cualquier ruta no definida → reportería */}
-      <Route path="*" element={<Navigate to={ROUTES.REPORTERIA} replace />} />
+      <Route path="*" element={<Navigate to={homeRoute} replace />} />
     </Routes>
   );
 }

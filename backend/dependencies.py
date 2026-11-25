@@ -22,10 +22,18 @@ from backend.models.auth import UserContext
 # Jerarquía de roles — coincide con frontend/src/constants/roles.js
 _ROLE_ORDER: dict[str, int] = {
     "VIEWER":        0,
+    "OPERATOR":      0,
     "AUDITOR":       1,
     "LIDER_QUALITY": 2,
     "ADMIN":         3,
 }
+
+_VIEWER_TRACE_ROUTES: frozenset[tuple[str, str]] = frozenset({
+    ("GET", "/api/trace/sends/summary"),
+    ("GET", "/api/trace/sends/detail"),
+    ("GET", "/api/trace/sends/export"),
+    ("POST", "/api/trace/audiences/search"),
+})
 
 
 @lru_cache(maxsize=1)
@@ -85,3 +93,17 @@ def require_role(min_role: str):
         return user
 
     return _check_role
+
+
+def require_trace_access(
+    request: Request,
+    user: UserContext = Depends(get_current_user),
+) -> UserContext:
+    """Admin/operator get all Trace; viewer gets only send-tracking reads."""
+    if user.role in {"ADMIN", "OPERATOR"}:
+        return user
+
+    if user.role == "VIEWER" and (request.method, request.url.path) in _VIEWER_TRACE_ROUTES:
+        return user
+
+    raise HTTPException(status_code=403, detail="No tienes acceso a esta sección de Trace")

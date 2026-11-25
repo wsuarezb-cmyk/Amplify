@@ -88,7 +88,7 @@ def test_connector_rejects_missing_secret_fields():
 
 @pytest.mark.parametrize(
     ("db_role", "expected_role"),
-    [("admin", "ADMIN"), ("VIEWER", "VIEWER"), ("operator", "AUDITOR")],
+    [("admin", "ADMIN"), ("VIEWER", "VIEWER"), ("operator", "OPERATOR")],
 )
 def test_get_overture_user_maps_supported_roles(monkeypatch, db_role, expected_role):
     class FakeOvertureConnector:

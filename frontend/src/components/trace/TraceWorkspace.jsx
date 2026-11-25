@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext.jsx';
+import { canAccessTraceModule, defaultTraceModule } from '../../constants/roles.js';
 import {
   ArrowDownloadRegular, ArrowTrendingRegular, CheckmarkCircleRegular, CursorClickRegular,
   DismissCircleRegular, EyeRegular, PersonRegular,
@@ -134,7 +136,8 @@ function ErrorMessage({ children }) {
 }
 
 function TraceWorkspace() {
-  const [module, setModule] = useState('audiences');
+  const { user } = useAuth();
+  const [module, setModule] = useState(() => defaultTraceModule(user?.role));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sendTemplate, setSendTemplate] = useState('');
@@ -257,7 +260,7 @@ function TraceWorkspace() {
   return (
     <div className="trace-workspace">
       <nav className="trace-module-tabs" aria-label="Módulos de Trace">
-        {MODULES.map(([id, label]) => (
+        {MODULES.filter(([id]) => canAccessTraceModule(user?.role, id)).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={module === id}
             className={module === id ? 'active' : ''} onClick={() => { setModule(id); setError(''); }}>
             {label}
@@ -266,7 +269,7 @@ function TraceWorkspace() {
       </nav>
       <ErrorMessage>{error}</ErrorMessage>
 
-      <AudienceGenerator hidden={module !== 'audiences'} />
+      {user?.role !== 'VIEWER' && <AudienceGenerator hidden={module !== 'audiences'} />}
 
       {module === 'sends' && <div className="trace-content">
         <section className="trace-section"><div className="trace-section-heading"><div><span className="trace-step">01</span><h2>Busca un envío</h2></div></div>

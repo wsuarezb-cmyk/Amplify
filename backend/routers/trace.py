@@ -201,7 +201,10 @@ def audience_history(
 def audience_search_post(
     body: AudienceSearchRequest,
     service: TraceService = Depends(get_trace_service),
+    user: UserContext = Depends(get_current_user),
 ):
+    if user.role == "VIEWER" and not body.members_only:
+        raise HTTPException(status_code=403, detail="VIEWER solo puede buscar audiencias con miembros")
     try:
         return service.search_audiences(
             body.search, body.created_by, body.created_from, body.created_to,

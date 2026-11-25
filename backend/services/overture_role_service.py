@@ -15,7 +15,7 @@ _cache: dict[str, tuple[UserContext, float]] = {}
 _ROLE_MAP = {
     "admin": "ADMIN",
     "viewer": "VIEWER",
-    "operator": "AUDITOR",
+    "operator": "OPERATOR",
 }
 
 

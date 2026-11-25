@@ -19,16 +19,16 @@ import {
   ChevronRightRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext.jsx';
-import { hasMinRole, ROLES } from '../../constants/roles.js';
+import { canAccessAppModule } from '../../constants/roles.js';
 import { ROUTES } from '../../constants/routes.js';
 import { NAV_GROUPS } from '../../constants/reporteriaSections.js';
 
 const APP_ITEMS = [
-  { id: 'reporteria', label: 'Reportería', path: ROUTES.REPORTERIA, Icon: DataBarVerticalRegular, minRole: ROLES.VIEWER },
-  { id: 'planner', label: 'Planner', path: ROUTES.PLANNER, Icon: CalendarLtrRegular, minRole: ROLES.VIEWER },
-  { id: 'trace', label: 'Trace', path: ROUTES.TRACE, Icon: SearchRegular, minRole: ROLES.VIEWER },
-  { id: 'calibracion', label: 'Calibración', path: ROUTES.CALIBRACION, Icon: ClipboardTaskListLtrRegular, minRole: ROLES.AUDITOR },
-  { id: 'glosario', label: 'Glosario', path: ROUTES.GLOSARIO, Icon: BookInformationRegular, minRole: ROLES.VIEWER },
+  { id: 'reporteria', label: 'Reportería', path: ROUTES.REPORTERIA, Icon: DataBarVerticalRegular },
+  { id: 'planner', label: 'Planner', path: ROUTES.PLANNER, Icon: CalendarLtrRegular },
+  { id: 'trace', label: 'Trace', path: ROUTES.TRACE, Icon: SearchRegular },
+  { id: 'calibracion', label: 'Calibración', path: ROUTES.CALIBRACION, Icon: ClipboardTaskListLtrRegular },
+  { id: 'glosario', label: 'Glosario', path: ROUTES.GLOSARIO, Icon: BookInformationRegular },
 ];
 
 export default function Sidebar({ view, setView, activeSection, collapsed, setCollapsed }) {
@@ -64,7 +64,7 @@ export default function Sidebar({ view, setView, activeSection, collapsed, setCo
       {/* Navegación de app */}
       <nav className="sidebar-app-nav">
         {APP_ITEMS
-          .filter(item => hasMinRole(user?.role, item.minRole))
+          .filter(item => canAccessAppModule(user?.role, item.id))
           .map(({ id, label, path, Icon }) => (
             <NavLink
               key={id}

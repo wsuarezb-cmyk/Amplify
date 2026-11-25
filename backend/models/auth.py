@@ -14,4 +14,4 @@ class UserContext(BaseModel):
     user_id: str
     email: str
     full_name: str
-    role: str  # 'VIEWER' | 'AUDITOR' | 'LIDER_QUALITY' | 'ADMIN'
+    role: str  # 'VIEWER' | 'OPERATOR' | 'AUDITOR' | 'LIDER_QUALITY' | 'ADMIN'

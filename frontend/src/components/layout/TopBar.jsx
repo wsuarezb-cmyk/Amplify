@@ -14,6 +14,7 @@ const OVERTURE_URL = 'https://foverture-sx-396556777333.us-east4.run.app/dashboa
 
 const ROLE_LABEL = {
   VIEWER: 'Viewer',
+  OPERATOR: 'Operator',
   AUDITOR: 'Auditor',
   LIDER_QUALITY: 'Líder de Calidad',
   ADMIN: 'Administrador',
