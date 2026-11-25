@@ -196,3 +196,13 @@ def test_middleware_uses_overture_for_iap_and_bigquery_for_dev(
 
     assert response.status_code == 200
     assert calls[0][0] == expected_source
+
+
+def test_safe_error_detail_redacts_sql_password():
+    detail = auth_middleware._safe_error_detail(
+        RuntimeError("password rejected: literal-secret"),
+        'user = "reader"\npassword = "literal-secret"',
+    )
+
+    assert detail == "password rejected: [REDACTED]"
+    assert "literal-secret" not in detail

@@ -20,6 +20,9 @@ DEV_AUTH_BYPASS está activo, se usa DEV_USER_EMAIL. NUNCA en producción.
 """
 
 import logging
+from io import StringIO
+
+from dotenv import dotenv_values
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -46,6 +49,20 @@ _BYPASS_PREFIXES: tuple[str, ...] = (
     "/api/redoc",
     "/api/openapi",
 )
+
+
+def _safe_error_detail(exc: Exception, sql_credentials: str) -> str:
+    detail = str(exc)
+    if sql_credentials:
+        try:
+            password = dotenv_values(
+                stream=StringIO(sql_credentials), interpolate=False
+            ).get("password")
+        except Exception:
+            password = None
+        if password:
+            detail = detail.replace(password, "[REDACTED]")
+    return detail[:400]
 
 
 def _resolve_email(request: Request, settings=None) -> str | None:
@@ -108,7 +125,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
             else:
                 user = get_overture_user_by_email(email)
         except Exception as exc:
-            logger.error("Error resolviendo usuario (tipo=%s)", type(exc).__name__)
+            logger.error(
+                "Error resolviendo usuario (tipo=%s, detalle=%s)",
+                type(exc).__name__,
+                _safe_error_detail(exc, settings.SQL_CREDENTIALS),
+            )
             return JSONResponse(
                 status_code=503,
                 content={"detail": "No se pudo verificar el acceso. Intenta nuevamente."},
