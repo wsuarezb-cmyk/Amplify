@@ -94,27 +94,27 @@ app.include_router(
 )
 app.include_router(
     criteria.router, prefix="/api/criteria", tags=["criteria"],
-        dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     interaction.router, prefix="/api/interaction", tags=["interaction"],
-        dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     glosario.router, prefix="/api/glosario", tags=["glosario"],
-        dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 app.include_router(
     pitch_diagnostico.router, prefix="/api/pitch/diagnostico", tags=["pitch-diagnostico"],
-        dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_role("ADMIN"))],
 )
-    app.include_router(
-        planner.router, prefix="/api/planner", tags=["planner"],
-        dependencies=[Depends(require_role("ADMIN"))],
-    )
+app.include_router(
+    planner.router, prefix="/api/planner", tags=["planner"],
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 app.include_router(
     trace.router, prefix="/api/trace", tags=["trace"],
-        dependencies=[Depends(require_trace_access)],
+    dependencies=[Depends(require_trace_access)],
 )
 
 # ─────────────────────────────────────────────────────────────
