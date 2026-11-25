@@ -977,6 +977,7 @@ class TraceService:
             present = valid_email and email in uploaded_emails
             seller_id = member.get("seller_id")
             if seller_id:
+                seller_id = str(seller_id)
                 members_by_seller.setdefault(seller_id, []).append(present)
                 if present:
                     present_sellers.add(seller_id)

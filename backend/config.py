@@ -44,10 +44,12 @@ class Settings(BaseSettings):
     # ── Dev bypass — SOLO desarrollo local, NUNCA en producción ─────────
     # ⚠️  SOLO PARA DESARROLLO LOCAL
     # Sin IAP delante no llega el header X-Goog-Authenticated-User-Email;
-    # con DEV_AUTH_BYPASS=true se usa DEV_USER_EMAIL como identidad simulada.
+    # con DEV_AUTH_BYPASS=true se usan DEV_USER_EMAIL y opcionalmente
+    # DEV_USER_ROLE para simular una identidad y rol locales.
     # En Cloud Run estas variables no existen → sin header → 401 (fail-closed).
     DEV_AUTH_BYPASS: bool = False
     DEV_USER_EMAIL: str = ""
+    DEV_USER_ROLE: str = ""
 
     # ── Roles de Overture (PostgreSQL Cloud SQL, solo lectura) ────────────
     SQL_CREDENTIALS: str = ""

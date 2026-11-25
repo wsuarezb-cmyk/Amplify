@@ -45,8 +45,6 @@ export default function TraceSendAlerts() {
   const [audiences, setAudiences] = useState({ items: [], page: 1, total: 0 });
   const [search, setSearch] = useState('');
   const [createdBy, setCreatedBy] = useState('');
-  const [createdFrom, setCreatedFrom] = useState('');
-  const [createdTo, setCreatedTo] = useState('');
   const [audience, setAudience] = useState(null);
   const [loadingAudiences, setLoadingAudiences] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -77,8 +75,8 @@ export default function TraceSendAlerts() {
     setError('');
     try {
       setAudiences(await getTraceAudiences({
-        search: search.trim(), created_by: createdBy.trim(), created_from: createdFrom,
-        created_to: createdTo, page: targetPage, page_size: 20, members_only: false,
+        search: search.trim(), created_by: createdBy.trim(),
+        page: targetPage, page_size: 20, members_only: false,
       }));
     } catch (reason) {
       setError(reason.message);
@@ -100,18 +98,19 @@ export default function TraceSendAlerts() {
     setNotificationFeedback(null);
   };
 
-  const validateFile = async () => {
+  const validateFile = async (selectedEmailColumn = emailColumn) => {
     if (!audience || !selectedFile) return;
     setLoading(true);
     setError('');
     setNotificationFeedback(null);
     setResult(null);
     try {
-      const validated = await validateTraceSendCsv(selectedFile, audience.audience_id, emailColumn);
+      const validated = await validateTraceSendCsv(
+        selectedFile, audience.audience_id, selectedEmailColumn,
+      );
+      if (selectedEmailColumn) setEmailColumn(selectedEmailColumn);
       setValidation(validated);
-      if (!emailColumn && validated.preferred_email_column) setEmailColumn(validated.preferred_email_column);
     } catch (reason) {
-      setValidation(null);
       setError(reason.message);
     } finally {
       setLoading(false);
@@ -123,16 +122,16 @@ export default function TraceSendAlerts() {
     setNotificationLoading(true);
     setNotificationFeedback(null);
     try {
-      const response = await sendTraceTeamsNotification(
+      await sendTraceTeamsNotification(
         result.reconciliation_id,
         recipients.map(email => email.trim().toLowerCase()),
       );
       setNotificationFeedback({
         type: 'success',
-        message: `Power Automate aceptó la solicitud. Confirma la publicación en Teams. Referencia: ${response.request_id}`,
+        message: 'Mensaje enviado',
       });
     } catch (reason) {
-      setNotificationFeedback({ type: 'error', message: reason.message || 'No fue posible enviar la notificación. Intenta nuevamente.' });
+      setNotificationFeedback({ type: 'error', message: 'Falló el envío' });
     } finally {
       setNotificationLoading(false);
     }
@@ -184,11 +183,9 @@ export default function TraceSendAlerts() {
     <section className="trace-section">
       <div className="trace-section-heading"><div><span className="trace-step">01</span><h2>Selecciona una audiencia</h2></div></div>
       <div className="trace-alert-audience-filters">
-        <label className="trace-field"><span>Buscar por ID o template</span><input value={search} onChange={event => setSearch(event.target.value)} /></label>
+        <label className="trace-field"><span>Nombre o template</span><input value={search} onChange={event => setSearch(event.target.value)} /></label>
         <label className="trace-field"><span>Usuario creador</span><input value={createdBy} onChange={event => setCreatedBy(event.target.value)} /></label>
-        <label className="trace-field"><span>Desde</span><input type="date" value={createdFrom} onChange={event => setCreatedFrom(event.target.value)} /></label>
-        <label className="trace-field"><span>Hasta</span><input type="date" value={createdTo} onChange={event => setCreatedTo(event.target.value)} /></label>
-        <button className="trace-button trace-button--quiet" type="button" onClick={() => loadAudiences(1)} disabled={loadingAudiences}>
+        <button className="trace-button trace-button--primary" type="button" onClick={() => loadAudiences(1)} disabled={loadingAudiences}>
           {loadingAudiences ? 'Buscando…' : 'Buscar audiencias'}
         </button>
       </div>
@@ -218,29 +215,21 @@ export default function TraceSendAlerts() {
           setEmailColumn(''); setValidation(null); setResult(null);
           setRecipients([]); setRecipientDraft(''); setRecipientError(''); setNotificationFeedback(null);
         }} disabled={!audience || !audience.has_members} /></label>
-        <button className="trace-button trace-button--primary" type="button" onClick={validateFile}
+        <button className="trace-button trace-button--primary" type="button" onClick={() => validateFile()}
           disabled={loading || !audience?.has_members || !selectedFile}>{loading ? 'Validando…' : 'Validar archivo'}</button>
       </div>
-      {selectedFile && <p className="trace-alert-file-meta">{selectedFile.name} · {(selectedFile.size / 1024).toLocaleString('es-CL', { maximumFractionDigits: 0 })} KB · {selectedFile.type || 'tipo no informado'}</p>}
       {validation && <>
-        <div className="trace-alert-validation-meta"><span>{number(validation.file_rows)} filas</span><span>{validation.file_size.toLocaleString('es-CL')} bytes</span><span>Columnas: {validation.columns.join(', ')}</span></div>
         <div className="trace-alert-column-select">
           <label className="trace-field"><span>Columna de email</span><select value={emailColumn} onChange={event => {
-            setEmailColumn(event.target.value);
+            const column = event.target.value;
+            setEmailColumn(column);
             setValidation(current => current ? { ...current, email_quality: null } : current);
             setResult(null);
+            if (column) validateFile(column);
           }}>
             <option value="">Selecciona una columna</option>{validation.columns.map(column => <option key={column}>{column}</option>)}
           </select></label>
-          {emailColumn && !validation.email_quality && <button className="trace-button trace-button--quiet" type="button" onClick={validateFile} disabled={loading}>Calcular calidad</button>}
         </div>
-        {validation.email_quality && <div className="trace-alert-validation-meta">
-          <span>Columna confirmada: <strong>{emailColumn}</strong></span>
-          <span>Emails válidos: {number(validation.email_quality.valid_emails)}</span>
-          <span>Inválidos: {number(validation.email_quality.invalid_emails)}</span>
-          <span>Vacíos: {number(validation.email_quality.empty_emails)}</span>
-          <span>Duplicados: {number(validation.email_quality.duplicate_emails)}</span>
-        </div>}
         <button className="trace-button trace-button--primary" type="button" onClick={reconcile}
           disabled={loading || !validation.email_quality || !emailColumn}>
           {loading ? 'Conciliando…' : 'Conciliar archivo'}
@@ -324,9 +313,9 @@ export default function TraceSendAlerts() {
           {notificationFeedback.message}
         </p>}
       </div>
-      <div className="trace-alert-message-list" aria-live="polite">{result.alerts.map((alert, index) => <p className={`trace-alert-message trace-alert-message--${alert.severity}`} key={`${alert.severity}-${index}`}>{alert.message}</p>)}</div>
-      <p className="trace-alert-quality">Archivo · {number(result.file_rows)} filas · {number(result.valid_emails)} emails válidos · {number(result.invalid_emails)} inválidos · {number(result.empty_emails)} vacíos · {number(result.duplicate_emails)} duplicados · {number(result.unexpected_contacts)} extras</p>
-      {result.details.partial_sellers.length > 0 && <p className="trace-alert-note">{number(result.details.partial_sellers.length)} sellers tienen cobertura parcial de sus contactos.</p>}
+      <p className="trace-alert-message trace-alert-message--warning" role="status">
+        El {rateLabel(result.missing_sellers, result.expected_sellers)} de los sellers no recibió este comunicado, según el archivo de envío.
+      </p>
       <div className="trace-alert-detail-controls">
         <nav className="trace-alert-detail-tabs" aria-label="Categorías de conciliación">{DETAIL_TABS.map(([id, label]) => <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => { setActiveTab(id); setPage(1); }}>
           {label} <span>{number(result.details[id].length)}</span>

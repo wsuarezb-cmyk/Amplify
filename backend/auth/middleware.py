@@ -30,6 +30,7 @@ from starlette.responses import JSONResponse, Response
 
 from backend.config import get_settings
 from backend.dependencies import get_bq
+from backend.models.auth import UserContext
 from backend.services.user_service import get_user_by_email
 from backend.services.overture_role_service import get_overture_user_by_email
 
@@ -49,6 +50,8 @@ _BYPASS_PREFIXES: tuple[str, ...] = (
     "/api/redoc",
     "/api/openapi",
 )
+
+_DEV_ROLES = frozenset({"ADMIN", "OPERATOR", "VIEWER"})
 
 
 def _safe_error_detail(exc: Exception, sql_credentials: str) -> str:
@@ -81,6 +84,18 @@ def _resolve_email(request: Request, settings=None) -> str | None:
         return settings.DEV_USER_EMAIL.strip().lower()
 
     return None
+
+
+def _get_dev_user(email: str, role_override: str) -> UserContext:
+    role = role_override.strip().upper()
+    if role not in _DEV_ROLES:
+        raise ValueError("DEV_USER_ROLE debe ser ADMIN, OPERATOR o VIEWER")
+    return UserContext(
+        user_id=f"dev:{email}",
+        email=email,
+        full_name=email,
+        role=role,
+    )
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -118,10 +133,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if email is None:
             return JSONResponse(status_code=401, content={"detail": "No autenticado"})
 
-        # 6. Producción usa Overture; el fallback local conserva el catálogo de desarrollo.
+        # 6. El rol simulado solo aplica al bypass local; IAP siempre consulta Overture.
         try:
             if not has_iap_identity and settings.DEV_AUTH_BYPASS:
-                user = get_user_by_email(get_bq(), email)
+                role_override = getattr(settings, "DEV_USER_ROLE", "")
+                user = (
+                    _get_dev_user(email, role_override)
+                    if role_override.strip()
+                    else get_user_by_email(get_bq(), email)
+                )
             else:
                 user = get_overture_user_by_email(email)
         except Exception as exc:

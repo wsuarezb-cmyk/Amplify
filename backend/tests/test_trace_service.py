@@ -84,7 +84,7 @@ def test_send_csv_parser_requires_header_and_consistent_column_count():
             raise AssertionError("El CSV inválido debía rechazarse")
 
 
-def test_send_alert_reconciliation_conciles_contacts_sellers_and_persists_aggregates_only():
+def test_send_alert_reconciliation_conciles_contacts_sellers_and_persists_summary():
     bq = TraceFakeBQ()
     bq.responses = [
         [{"audience_id": "A1", "template": "campaign", "created_by": "creator",
@@ -195,6 +195,7 @@ def test_get_send_reconciliation_returns_only_summary_fields_from_audit():
 
     assert result["reconciliation_id"] == "REC-1"
     assert result["missing_sellers"] == 2
+    assert "missing_seller_ids" not in bq.queries[0][0]
     assert "email" not in bq.queries[0][0].lower()
     assert "FROM `project.dataset.trace_send_reconciliation_history`" in bq.queries[0][0]
     assert bq.queries[0][1][0].value == "REC-1"

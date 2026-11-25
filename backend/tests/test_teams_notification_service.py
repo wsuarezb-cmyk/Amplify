@@ -61,7 +61,7 @@ def test_normalize_recipients_rejects_emails_longer_than_rfc_limit():
         normalize_recipients([f"{'a' * 250}@falabella.com"], "falabella.com")
 
 
-def test_build_payload_has_real_multiple_mentions_and_only_reconciliation_summary():
+def test_build_payload_has_mentions_and_send_result_summary():
     payload = build_teams_payload(
         reconciliation(), ["ana.lopez@falabella.com", "pablo@falabella.com"],
         "operator@falabella.com",
@@ -73,7 +73,12 @@ def test_build_payload_has_real_multiple_mentions_and_only_reconciliation_summar
     assert len(entities) == 2
     assert entities[0]["text"] == "<at>Ana María López</at>"
     assert entities[0]["mentioned"]["id"] == "ana.lopez@falabella.com"
-    assert "Sellers presentes en archivo" in str(card)
+    assert card["body"][0]["text"] == "Resultado del envío"
+    card_text = str(card)
+    assert "Tu solicitud ya fue procesada. Aquí encontrarás el detalle:" in card_text
+    assert "Sellers incluidos en la solicitud de envío" in card_text
+    assert "Sellers que recibieron la comunicación" in card_text
+    assert "IDs, Sellers que no les llegó el mensaje" not in card_text
     assert payload["missing_contacts"] == 10
     assert "file" not in payload and "content_base64" not in payload
 

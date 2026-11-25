@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$")
 _DOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+
+
 class _NoRedirectHandler(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -88,28 +90,23 @@ def build_teams_payload(reconciliation: dict, recipients: list[str], requested_b
     ]
     greeting = "Hola " + ", ".join(item["text"] for item in mentions)
     facts = [
-        {"title": "Audiencia", "value": str(reconciliation["audience_id"])},
-        {"title": "Template", "value": str(reconciliation["template"])},
+        {"title": "Nombre Template", "value": str(reconciliation["template"])},
         {"title": "Fecha de conciliación", "value": _isoformat(reconciliation.get("uploaded_at"))},
         {"title": "Solicitado por", "value": requested_by},
-        {"title": "Sellers esperados", "value": str(reconciliation["expected_sellers"])},
-        {"title": "Sellers presentes en archivo", "value": str(reconciliation["present_sellers"])},
-        {"title": "Sellers no presentes en archivo", "value": str(reconciliation["missing_sellers"])},
-        {"title": "Contactos esperados", "value": str(reconciliation["expected_contacts"])},
-        {"title": "Contactos presentes en archivo", "value": str(reconciliation["present_contacts"])},
-        {"title": "Contactos no presentes en archivo", "value": str(reconciliation["missing_contacts"])},
+        {"title": "Sellers incluidos en la solicitud de envío", "value": str(reconciliation["expected_sellers"])},
+        {"title": "Sellers que recibieron la comunicación", "value": str(reconciliation["present_sellers"])},
     ]
     coverage = reconciliation.get("seller_coverage_rate")
     if coverage is not None:
-        facts.append({"title": "Cobertura de sellers", "value": f"{coverage:.1%}"})
+        facts.append({"title": "Cobertura de Sellers", "value": f"{coverage:.1%}"})
 
     card = {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "type": "AdaptiveCard",
         "version": "1.4",
         "body": [
-            {"type": "TextBlock", "text": "Resultado de conciliación de envío", "weight": "Bolder", "size": "Medium", "wrap": True},
-            {"type": "TextBlock", "text": f"{greeting}. Tu solicitud fue procesada. Los conteos indican presencia en el archivo de envío, no entrega.", "wrap": True},
+            {"type": "TextBlock", "text": "Resultado del envío", "weight": "Bolder", "size": "Medium", "wrap": True},
+            {"type": "TextBlock", "text": f"{greeting}. Tu solicitud ya fue procesada. Aquí encontrarás el detalle:", "wrap": True},
             {"type": "FactSet", "facts": facts},
         ],
         "msteams": {"entities": mentions},

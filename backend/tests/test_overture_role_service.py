@@ -173,7 +173,12 @@ def test_middleware_uses_overture_for_iap_and_bigquery_for_dev(
 ):
     calls = []
     user = object()
-    settings = SimpleNamespace(DEV_AUTH_BYPASS=dev_bypass, DEV_USER_EMAIL="ana@example.com")
+    settings = SimpleNamespace(
+        DEV_AUTH_BYPASS=dev_bypass,
+        DEV_USER_EMAIL="ana@example.com",
+        DEV_USER_ROLE="ADMIN" if headers else "",
+        SQL_CREDENTIALS="",
+    )
     monkeypatch.setattr(auth_middleware, "get_settings", lambda: settings)
     monkeypatch.setattr(
         auth_middleware,
@@ -196,6 +201,37 @@ def test_middleware_uses_overture_for_iap_and_bigquery_for_dev(
 
     assert response.status_code == 200
     assert calls[0][0] == expected_source
+
+
+def test_middleware_uses_local_role_override_without_bigquery(monkeypatch):
+    settings = SimpleNamespace(
+        DEV_AUTH_BYPASS=True,
+        DEV_USER_EMAIL="ana@example.com",
+        DEV_USER_ROLE="operator",
+        SQL_CREDENTIALS="",
+    )
+    monkeypatch.setattr(auth_middleware, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        auth_middleware,
+        "get_bq",
+        lambda: pytest.fail("El override de rol local no debe consultar BigQuery"),
+    )
+    monkeypatch.setattr(
+        auth_middleware,
+        "get_overture_user_by_email",
+        lambda _email: pytest.fail("El bypass local no debe consultar Overture"),
+    )
+
+    async def call_next(request):
+        user = request.state.user
+        assert user.email == "ana@example.com"
+        assert user.role == "OPERATOR"
+        return Response(status_code=200)
+
+    middleware = auth_middleware.AuthMiddleware(app=lambda *_args: None)
+    response = __import__("asyncio").run(middleware.dispatch(_request({}), call_next))
+
+    assert response.status_code == 200
 
 
 def test_safe_error_detail_redacts_sql_password():
